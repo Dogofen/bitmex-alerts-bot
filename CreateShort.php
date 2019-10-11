@@ -5,8 +5,8 @@ use Monolog\Handler\StreamHandler;
 require_once("BitMex.php");
 
 
-$key = "moHvOy3DuhVqpSuapwmgkMrt";
-$secret = "7R1kKlFRZQgILMFlFb4yNKNpf72NEYHbkc-s1xuG6kzeqCKN";
+$key = "";
+$secret = "";
 $bitmex = new BitMex($key,$secret);
 $result = $bitmex->getTicker();
 $lastPrice = $result["last"];
