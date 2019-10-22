@@ -2,10 +2,6 @@
 
 /*
  * BitMex PHP REST API
- *
- * @author y0un1verse
- * @version 0.1
- * @link https://github.com/y0un1verse/bitmex-api-php
  */
 
 class BitMex {
@@ -13,7 +9,6 @@ class BitMex {
   //const API_URL = 'https://testnet.bitmex.com';
   const API_URL = 'https://www.bitmex.com';
   const API_PATH = '/api/v1/';
-  const SYMBOL = 'XBTUSD';
 
   private $apiKey;
   private $apiSecret;
@@ -49,9 +44,8 @@ class BitMex {
    * @return ticker array
    */
 
-  public function getTicker() {
+  public function getTicker($symbol) {
 
-    $symbol = self::SYMBOL;
     $data['function'] = "instrument";
     $data['params'] = array(
       "symbol" => $symbol
@@ -86,9 +80,8 @@ class BitMex {
    * @return candles array (from past to present)
    */
 
-  public function getCandles($timeFrame,$count,$offset = 0) {
+  public function getCandles($timeFrame,$count,$offset = 0, $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['function'] = "trade/bucketed";
     $data['params'] = array(
       "symbol" => $symbol,
@@ -129,9 +122,8 @@ class BitMex {
    * @return array or false
    */
 
-  public function getOrder($orderID,$count = 100) {
+  public function getOrder($orderID,$count = 100, $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "GET";
     $data['function'] = "order";
     $data['params'] = array(
@@ -160,9 +152,8 @@ class BitMex {
    * @return orders array (from the past to the present)
    */
 
-  public function getOrders($count = 100) {
+  public function getOrders($count = 100, $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "GET";
     $data['function'] = "order";
     $data['params'] = array(
@@ -182,9 +173,8 @@ class BitMex {
    * @return open orders array
    */
 
-  public function getOpenOrders() {
+  public function getOpenOrders($symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "GET";
     $data['function'] = "order";
     $data['params'] = array(
@@ -211,9 +201,8 @@ class BitMex {
    * @return open positions array
    */
 
-  public function getOpenPositions() {
+  public function getOpenPositions($symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "GET";
     $data['function'] = "position";
     $data['params'] = array(
@@ -240,9 +229,8 @@ class BitMex {
    * @return array
    */
 
-  public function closePosition($price) {
+  public function closePosition($symbol, $price) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "POST";
     $data['function'] = "order/closePosition";
     $data['params'] = array(
@@ -283,16 +271,15 @@ class BitMex {
    *
    * @param $type can be "Limit"
    * @param $side can be "Buy" or "Sell"
-   * @param $price BTC price in USD
+   * @param $price in BTC or USD
    * @param $quantity should be in USD (number of contracts)
    * @param $maker forces platform to complete your order as a 'maker' only
    *
    * @return new order array
    */
 
-  public function createOrder($type,$side,$price,$quantity,$maker = false) {
+  public function createOrder($symbol, $type, $side, $price, $quantity, $maker = false) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "POST";
     $data['function'] = "order";
     $data['params'] = array(
@@ -320,9 +307,8 @@ class BitMex {
    * @return all closed orders arrays
    */
 
-  public function cancelAllOpenOrders($text = "") {
+  public function cancelAllOpenOrders($text = "", $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "DELETE";
     $data['function'] = "order/all";
     $data['params'] = array(
@@ -379,9 +365,8 @@ class BitMex {
    * @return array
    */
 
-  public function getOrderBook($depth = 25) {
+  public function getOrderBook($depth = 25, $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "GET";
     $data['function'] = "orderBook/L2";
     $data['params'] = array(
@@ -401,9 +386,8 @@ class BitMex {
    * @return array
    */
 
-  public function setLeverage($leverage) {
+  public function setLeverage($leverage, $symbol) {
 
-    $symbol = self::SYMBOL;
     $data['method'] = "POST";
     $data['function'] = "position/leverage";
     $data['params'] = array(
