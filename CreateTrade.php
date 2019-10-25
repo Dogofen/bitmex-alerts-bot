@@ -50,7 +50,10 @@ else {
 $order = False;
 $bitmex = new BitMex($config['key'],$config['secret']);
 $bitmex->setLeverage($config['leverage'], $symbol);
-$result = $bitmex->getTicker($symbol);
+$result = False;
+do {
+    $result = $bitmex->getTicker($symbol);
+} while ($result == False);
 $lastPrice = $result["last"];
 $interval = $lastPrice * $intervalPercentage;
 $target = $lastPrice + $lastPrice * $targetPercent;
@@ -87,7 +90,11 @@ $log->info("Setting current Close price", ['Close Price'=>$close]);
 
 $flag = 0;
 while(1) {
-    $result = $bitmex->getTicker($symbol);
+    $result = False;
+    do {
+        $result = $bitmex->getTicker($symbol);
+    } while ($result == False);
+
     $tmpLastPrice = $result["last"];
     if($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
         if (!$flag) {
