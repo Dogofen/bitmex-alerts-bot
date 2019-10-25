@@ -56,7 +56,7 @@ do {
 } while ($result == False);
 $lastPrice = $result["last"];
 $interval = $lastPrice * $intervalPercentage;
-$target = $lastPrice + $lastPrice * $targetPercent;
+$target = is_buy($type) ? $lastPrice + $lastPrice * $targetPercent :  $lastPrice - $lastPrice * $targetPercent;
 do {
     $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
 } while ($order == False);
