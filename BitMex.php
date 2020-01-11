@@ -201,15 +201,18 @@ class BitMex {
    * @return open positions array
    */
 
-  public function getOpenPositions($symbol) {
+  public function getOpenPositions() {
 
     $data['method'] = "GET";
     $data['function'] = "position";
     $data['params'] = array(
-      "symbol" => $symbol
+      "symbol" => "XBTUSD"
     );
-
-    $positions = $this->authQuery($data);
+    try {
+        $positions = $this->authQuery($data);
+    } catch (Exception $e) {
+        throw new Exception($e);
+    }
 
     $openPositions = array();
     foreach($positions as $position) {

@@ -9,11 +9,32 @@ function is_buy($type) {
     return $type == 'Buy' ? 1:0;
 }
 
-$tradeSymbols = array('XBTUSD', 'XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19','ETHUSD', 'LTCZ19', 'TRXZ19', 'XRPZ19');
+function get_open_positions_by_symbol($bitmex, $symbol, $log) {
+    $positions = False;
+    do {
+        try {
+            $positions = $bitmex->getOpenPositions();
+        } catch (Exception $e) {
+            $log->error("Failed retrieving open positions", ['error'=>$e]);
+        }
+        if(!is_array($positions)) {
+            $log->error("Failed retrieving open positions", ['posistion'=>$position]);
+            sleep(2);
+        }
+    } while (!is_array($positions));
+    foreach($positions as $pos) {
+        if($pos["symbol"] == $symbol) {
+            return $pos;
+        }
+    }
+    return False;
+}
+
+$tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
 
-if (isset($argv[1]) and in_array($argv[1], $tradeSymbols)) {
-    $symbol = $argv[1];
+if (isset($argv[1]) and intval($argv[1]) <= sizeof($tradeSymbols)) {
+    $symbol = $tradeSymbols[intval($argv[1])];
 }
 else {
     echo 'Error: '.$argv[1].' is not a valid symbol'."\n";
@@ -47,27 +68,9 @@ else {
     echo 'Error: failed to get amount'."\n";
     exit();
 }
-$order = False;
-$bitmex = new BitMex($config['key'],$config['secret']);
-$bitmex->setLeverage($config['leverage'], $symbol);
-$result = False;
-do {
-    $result = $bitmex->getTicker($symbol);
-} while ($result == False);
-$lastPrice = $result["last"];
-$interval = $lastPrice * $intervalPercentage;
-$target = is_buy($type) ? $lastPrice + $lastPrice * $targetPercent :  $lastPrice - $lastPrice * $targetPercent;
-do {
-    $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-} while ($order == False);
-if (!is_array($order) or is_array($order) and empty($order)) {
-    echo "ERROR: Order Failure\n";
-    var_dump($order);
-    exit();
-}
-$orderId = $order['orderID'];
 
-$logPath = is_buy($type) ? getcwd().'/long'.$orderId.'.log' : getcwd().'/short'.$orderId.'.log';
+$timestamp = date("Y-m-d_H:i:s");
+$logPath = is_buy($type) ? getcwd().'/long'.$timestamp.'.log' : getcwd().'/short'.$timestamp.'.log';
 $startTime = microtime(true);
 $log = new Logger('BOT');
 $log->pushHandler(new StreamHandler($logPath, Logger::DEBUG));
@@ -81,19 +84,74 @@ $log->pushProcessor(function ($entry) use($startTime) {
      $entry['extra']['Time Elapsed'] = $h.':'.sprintf('%02d', $m).':'.sprintf('%02d', $s);
     return $entry;
 });
+
+$bitmex = new BitMex($config['key'],$config['secret']);
+$bitmex->setLeverage($config['leverage'], $symbol);
+
+$position = get_open_positions_by_symbol($bitmex, $symbol, $log);
+
+if (!empty($position)) {
+    $log->info("Closing previous position before resuming", ['time'=>$timestamp]);
+    $close = False;
+    do {
+        try {
+            $close = $bitmex->closePosition($symbol, null);
+        } catch (Exception $e) {
+            $log->error("Failed closing open positions", ['error'=>$e]);
+        }
+    } while ($close == False);
+    $log->info("Position was closed", ['position'=>$close]);
+    sleep(5);
+}
+
+$result = False;
+do {
+    try {
+        $result = $bitmex->getTicker($symbol);
+    } catch (Exception $e) {
+        $log->error("Failed retrieving ticker", ['error'=>$e]);
+    }
+} while ($result == False);
+$lastPrice = $result["last"];
+$interval = $lastPrice * $intervalPercentage;
+
+$target = is_buy($type) ? $lastPrice + $lastPrice * $targetPercent :  $lastPrice - $lastPrice * $targetPercent;
+
+$order = False;
+do {
+    try {
+        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+    } catch (Exception $e) {
+        $log->error("Failed Creating position", ['error'=>$e]);
+    }
+
+} while ($order == False);
+if (!is_array($order) or is_array($order) and empty($order)) {
+    $log->error("Order Failure", ['order'=>$order]);
+    exit();
+}
+
+sleep(5);
+
 $log->info("Position has been created on Bitmex", ['info'=>$order]);
 $log->info("Target is at price", ['Target'=>$target]);
 $log->info("Interval is", ['Interval'=>$interval]);
 
 $close = is_buy($type) ? $lastPrice - $interval :  $lastPrice + $interval;
-$log->info("Setting current Close price", ['Close Price'=>$close]);
+$log->info("Setting current Stoploss price", ['Close Price'=>$close]);
 
 $flag = 0;
-while(1) {
+do {
+    $position = get_open_positions_by_symbol($bitmex, $symbol, $log);
     $result = False;
     do {
-        $result = $bitmex->getTicker($symbol);
+        try {
+            $result = $bitmex->getTicker($symbol);
+        } catch (Exception $e) {
+            $log->error("Failed retrieving ticker", ['error'=>$e]);
+        }
     } while ($result == False);
+
 
     $tmpLastPrice = $result["last"];
     if($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
@@ -107,10 +165,15 @@ while(1) {
         $close = False;
         $log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$tmpLastPrice]);
         do {
-            $close = $bitmex->closePosition($symbol, null);
+            try {
+                $close = $bitmex->closePosition($symbol, null);
+            } catch (Exception $e) {
+                $log->error("Failed closing positions", ['error'=>$e]);
+            }
+
         } while ($close == False);
         $log->info("Trade has closed successfully", ['info'=>$close]);
-        break;
+        exit();
     }
     if($tmpLastPrice < $lastPrice and !is_buy($type)) {
         $lastPrice = $tmpLastPrice;
@@ -126,6 +189,7 @@ while(1) {
     }
 
     sleep(2);
-}
+} while ($position);
+$log->info("Postion was closed outside the function thus exiting", ['Close Price'=>$close]);
 
 ?>

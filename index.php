@@ -9,7 +9,6 @@ while(1) {
         sleep(1);
     }
     else {
-        var_dump($msgs);
         $msg = $gmailClient->getMessage($msgs[0]);
         $params = $gmailClient->getAlertSubject($msg);
         $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
