@@ -189,7 +189,7 @@ do {
     }
 
     sleep(2);
-} while ($position);
+} while (1);
 $log->info("Postion was closed outside the function thus exiting", ['Close Price'=>$close]);
 
 ?>
