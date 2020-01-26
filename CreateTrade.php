@@ -30,6 +30,10 @@ function get_open_positions_by_symbol($bitmex, $symbol, $log) {
     return False;
 }
 
+function get_opposite_trade_type($type) {
+    return $type == "Buy" ? "Sell": "Buy";
+}
+
 $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
 
@@ -87,22 +91,6 @@ $log->pushProcessor(function ($entry) use($startTime) {
 
 $bitmex = new BitMex($config['key'],$config['secret']);
 $bitmex->setLeverage($config['leverage'], $symbol);
-
-$position = get_open_positions_by_symbol($bitmex, $symbol, $log);
-
-if (!empty($position)) {
-    $log->info("Closing previous position before resuming", ['time'=>$timestamp]);
-    $close = False;
-    do {
-        try {
-            $close = $bitmex->closePosition($symbol, null);
-        } catch (Exception $e) {
-            $log->error("Failed closing open positions", ['error'=>$e]);
-        }
-    } while ($close == False);
-    $log->info("Position was closed", ['position'=>$close]);
-    sleep(5);
-}
 
 $result = False;
 do {
@@ -166,7 +154,7 @@ do {
         $log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$tmpLastPrice]);
         do {
             try {
-                $close = $bitmex->closePosition($symbol, null);
+                $close = $bitmex->createOrder($symbol, "Market",get_opposite_trade_type($type), null, $amount);
             } catch (Exception $e) {
                 $log->error("Failed closing positions", ['error'=>$e]);
             }
