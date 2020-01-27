@@ -69,8 +69,15 @@ if (isset($argv[5])) {
     $amount = $argv[5];
 }
 else {
-    echo 'Error: failed to get amount'."\n";
-    exit();
+     echo 'Error: not a valid amount'."\n";
+     exit();
+}
+
+if (isset($argv[6]) and $argv[6] == "force_close") {
+    $newIntervalFlag = 0.0001;
+}
+else {
+    $newIntervalFlag = 0.182;
 }
 
 $timestamp = date("Y-m-d_H:i:s");
@@ -126,11 +133,9 @@ $log->info("Target is at price", ['Target'=>$target]);
 $log->info("Interval is", ['Interval'=>$interval]);
 
 $close = is_buy($type) ? $lastPrice - $interval :  $lastPrice + $interval;
-$log->info("Setting current Stoploss price", ['Close Price'=>$close]);
+$log->info("Setting current Stoploss price", ['Stop Loss'=>$close]);
 
-$flag = 0;
 do {
-    $position = get_open_positions_by_symbol($bitmex, $symbol, $log);
     $result = False;
     do {
         try {
@@ -143,15 +148,15 @@ do {
 
     $tmpLastPrice = $result["last"];
     if($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
-        if (!$flag) {
-            $interval = $interval * 0.282;
+        if ($newIntervalFlag) {
+            $interval = $interval * $newIntervalFlag;
             $log->info("Target was reached, setting new interval", ['interval'=>$interval]);
-            $flag = 1;
+            $newIntervalFlag = 0;
         }
     }
     if ($tmpLastPrice > $close and !is_buy($type) or $tmpLastPrice < $close and is_buy($type)) {
         $close = False;
-        $log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$tmpLastPrice]);
+        $log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
         do {
             try {
                 $close = $bitmex->createOrder($symbol, "Market",get_opposite_trade_type($type), null, $amount);
@@ -166,18 +171,17 @@ do {
     if($tmpLastPrice < $lastPrice and !is_buy($type)) {
         $lastPrice = $tmpLastPrice;
         $close = $lastPrice + $interval;
-        $log->info("Price moved down", ['Price'=>$lastPrice]);
-        $log->info("Updating entry to stop loss at price", ['Close Price'=>$close]);
+        $log->info("Price moved down", ['Last Price'=>$lastPrice]);
+        $log->info("Updating entry to stop loss at price", ['Stop Loss'=>$close]);
     }
     if($tmpLastPrice > $lastPrice and is_buy($type)) {
         $lastPrice = $tmpLastPrice;
         $close = $lastPrice - $interval;
-        $log->info("Price moved up", ['Price'=>$lastPrice]);
-        $log->info("Updating entry to stop loss at price", ['Close Price'=>$close]);
+        $log->info("Price moved up", ['Last Price'=>$lastPrice]);
+        $log->info("Updating entry to stop loss at price", ['Stop Loss'=>$close]);
     }
 
     sleep(2);
 } while (1);
-$log->info("Postion was closed outside the function thus exiting", ['Close Price'=>$close]);
 
 ?>
