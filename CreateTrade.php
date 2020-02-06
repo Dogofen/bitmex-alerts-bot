@@ -4,6 +4,25 @@ use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 require_once("BitMex.php");
 $config = include('config.php');
+$tickerFile =  getcwd().'/.ticker.txt';
+
+$timestamp = date("Y-m-d_H:i:s");
+$logPath = getcwd().'/trade'.$timestamp.'.log';
+$startTime = microtime(true);
+$log = new Logger('BOT');
+$log->pushHandler(new StreamHandler($logPath, Logger::DEBUG));
+$log->pushProcessor(function ($entry) use($startTime) {
+    $endTime = microtime(true);
+    $s = $endTime - $startTime;
+    $h = floor($s / 3600);
+    $s -= $h * 3600;
+    $m = floor($s / 60);
+    $s -= $m * 60;
+     $entry['extra']['Time Elapsed'] = $h.':'.sprintf('%02d', $m).':'.sprintf('%02d', $s);
+    return $entry;
+});
+
+$bitmex = new BitMex($config['key'],$config['secret']);
 
 function is_buy($type) {
     return $type == 'Buy' ? 1:0;
@@ -33,9 +52,16 @@ function get_open_positions_by_symbol($bitmex, $symbol, $log) {
 function get_opposite_trade_type($type) {
     return $type == "Buy" ? "Sell": "Buy";
 }
+function get_ticker($file) {
+    $ticker = fopen($file, "r");
+    $lastPrice = floatval(fread($ticker, filesize($file)));
+    fclose($ticker);
+    return $lastPrice;
+}
 
 $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
+$strategies = array('force_close', 'only_execute', 'reverse_pos');
 
 if (isset($argv[1]) and intval($argv[1]) <= sizeof($tradeSymbols)) {
     $symbol = $tradeSymbols[intval($argv[1])];
@@ -79,35 +105,31 @@ if (isset($argv[6]) and $argv[6] == "force_close") {
 else {
     $newIntervalFlag = 0.182;
 }
+if (isset($argv[6]) and $argv[6] == "only_execute") {
+    try {
+        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+    } catch (Exception $e) {
+        $log->error("Failed to create/close position", ['error'=>$e]);
+    }
+    exit();
+}
+if (isset($argv[6]) and $argv[6] == "reverse_pos") {
+    try {
+        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount*2);
+        sleep(1);
+    } catch (Exception $e) {
+        $log->error("Failed to create/close position", ['error'=>$e]);
+    }
+    exit();
+}
 
-$timestamp = date("Y-m-d_H:i:s");
-$logPath = is_buy($type) ? getcwd().'/long'.$timestamp.'.log' : getcwd().'/short'.$timestamp.'.log';
-$startTime = microtime(true);
-$log = new Logger('BOT');
-$log->pushHandler(new StreamHandler($logPath, Logger::DEBUG));
-$log->pushProcessor(function ($entry) use($startTime) {
-    $endTime = microtime(true);
-    $s = $endTime - $startTime;
-    $h = floor($s / 3600);
-    $s -= $h * 3600;
-    $m = floor($s / 60);
-    $s -= $m * 60;
-     $entry['extra']['Time Elapsed'] = $h.':'.sprintf('%02d', $m).':'.sprintf('%02d', $s);
-    return $entry;
-});
 
-$bitmex = new BitMex($config['key'],$config['secret']);
+
 $bitmex->setLeverage($config['leverage'], $symbol);
 
 $result = False;
-do {
-    try {
-        $result = $bitmex->getTicker($symbol);
-    } catch (Exception $e) {
-        $log->error("Failed retrieving ticker", ['error'=>$e]);
-    }
-} while ($result == False);
-$lastPrice = $result["last"];
+$lastPrice = get_ticker($tickerFile);
+
 $interval = $lastPrice * $intervalPercentage;
 
 $target = is_buy($type) ? $lastPrice + $lastPrice * $targetPercent :  $lastPrice - $lastPrice * $targetPercent;
@@ -126,7 +148,6 @@ if (!is_array($order) or is_array($order) and empty($order)) {
     exit();
 }
 
-sleep(5);
 
 $log->info("Position has been created on Bitmex", ['info'=>$order]);
 $log->info("Target is at price", ['Target'=>$target]);
@@ -136,17 +157,8 @@ $close = is_buy($type) ? $lastPrice - $interval :  $lastPrice + $interval;
 $log->info("Setting current Stoploss price", ['Stop Loss'=>$close]);
 
 do {
-    $result = False;
-    do {
-        try {
-            $result = $bitmex->getTicker($symbol);
-        } catch (Exception $e) {
-            $log->error("Failed retrieving ticker", ['error'=>$e]);
-        }
-    } while ($result == False);
 
-
-    $tmpLastPrice = $result["last"];
+    $tmpLastPrice = get_ticker($tickerFile);
     if($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
         if ($newIntervalFlag) {
             $interval = $interval * $newIntervalFlag;
@@ -181,7 +193,7 @@ do {
         $log->info("Updating entry to stop loss at price", ['Stop Loss'=>$close]);
     }
 
-    sleep(2);
+    sleep(1);
 } while (1);
 
 ?>
