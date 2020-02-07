@@ -105,11 +105,12 @@ if (isset($argv[6]) and $argv[6] == "force_close") {
 else {
     $newIntervalFlag = 0.182;
 }
-if (isset($argv[6]) and $argv[6] == "only_execute") {
+if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
+    $pid = explode('_', $argv[7])[1];
     if (strpos($argv[7], 'longSig') !== false or strpos($argv[7], 'shortSig') !== false) {
-        $pid = explode('_', $argv[7])[1];
-        if (!file_exists(getcwd().'/'.$pid)) {
-            shell_exec('touch '.getcwd().'/'.$pid);
+        if (!file_exists(getcwd().'/long_'.$pid) and !file_exists(getcwd().'/short_'.$pid)) {
+            $fileName = strpos($argv[7], 'longSig') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
+            shell_exec('touch '.$fileName);
             try {
                 $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
             } catch (Exception $e) {
@@ -122,21 +123,19 @@ if (isset($argv[6]) and $argv[6] == "only_execute") {
             exit();
         }
     }
-    if (strpos($argv[7], 'closeShort') !== false or strpos($argv[7], 'closeLong') !== false) {
-        $pid = explode('_', $argv[7])[1];
-        if (file_exists(getcwd().'/'.$pid)) {
-            shell_exec('rm '.getcwd().'/'.$pid);
-            try {
-                $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-            } catch (Exception $e) {
-                $log->error("Failed to create/close position", ['error'=>$e]);
-            }
-            exit();
+    if (strpos($argv[7], 'closeShort') !== false and file_exists(getcwd().'/short_'.$pid) or strpos($argv[7], 'closeLong') !== false and file_exists(getcwd().'/long_'.$pid)) {
+        $fileName = strpos($argv[7], 'closeLong') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
+        shell_exec('rm '.$fileName);
+        try {
+            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+        } catch (Exception $e) {
+            $log->error("Failed to create/close position", ['error'=>$e]);
         }
-        else {
-            $log->warning("No Opened trades with id", ['pid'=>$pid]);
-            exit();
-        }
+        exit();
+    }
+    else {
+        $log->warning("No Openned trades or mismatch", ['pid'=>$pid]);
+        exit();
     }
 }
 if (isset($argv[6]) and $argv[6] == "reverse_pos") {
