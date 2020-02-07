@@ -106,12 +106,38 @@ else {
     $newIntervalFlag = 0.182;
 }
 if (isset($argv[6]) and $argv[6] == "only_execute") {
-    try {
-        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-    } catch (Exception $e) {
-        $log->error("Failed to create/close position", ['error'=>$e]);
+    if (strpos($argv[7], 'longSig') !== false or strpos($argv[7], 'shortSig') !== false) {
+        $pid = explode('_', $argv[7])[1];
+        if (!file_exists(getcwd().'/'.$pid)) {
+            shell_exec('touch '.getcwd().'/'.$pid);
+            try {
+                $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+            } catch (Exception $e) {
+                $log->error("Failed to create/close position", ['error'=>$e]);
+            }
+            exit();
+        }
+        else {
+            $log->warning("Trade is already opened", ['pid'=>$pid]);
+            exit();
+        }
     }
-    exit();
+    if (strpos($argv[7], 'closeShort') !== false or strpos($argv[7], 'closeLong') !== false) {
+        $pid = explode('_', $argv[7])[1];
+        if (file_exists(getcwd().'/'.$pid)) {
+            shell_exec('rm '.getcwd().'/'.$pid);
+            try {
+                $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+            } catch (Exception $e) {
+                $log->error("Failed to create/close position", ['error'=>$e]);
+            }
+            exit();
+        }
+        else {
+            $log->warning("No Opened trades with id", ['pid'=>$pid]);
+            exit();
+        }
+    }
 }
 if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     try {
