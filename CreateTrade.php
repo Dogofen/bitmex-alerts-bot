@@ -61,7 +61,7 @@ function get_ticker($file) {
 
 $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
-$strategies = array('force_close', 'only_execute', 'reverse_pos');
+$strategies = array('only_execute', 'reverse_pos');
 
 if (isset($argv[1]) and intval($argv[1]) <= sizeof($tradeSymbols)) {
     $symbol = $tradeSymbols[intval($argv[1])];
@@ -70,8 +70,8 @@ else {
     echo 'Error: '.$argv[1].' is not a valid symbol'."\n";
     exit();
 }
-if (isset($argv[2]) and 0.001 < $argv[2] and $argv[2] < 100) {
-    $intervalPercentage = floatval($argv[2]) / 100;
+if (isset($argv[2])) {
+    $stopLossInterval = -$argv[2];
 }
 else {
     echo 'Error: '.$argv[2]. ' is not a valid interval'."\n";
@@ -97,13 +97,6 @@ if (isset($argv[5])) {
 else {
      echo 'Error: not a valid amount'."\n";
      exit();
-}
-
-if (isset($argv[6]) and $argv[6] == "force_close") {
-    $newIntervalFlag = 0.0001;
-}
-else {
-    $newIntervalFlag = 0.182;
 }
 if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     $pid = explode('_', $argv[7])[1];
@@ -168,16 +161,11 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     }
 }
 
-
-
 $bitmex->setLeverage($config['leverage'], $symbol);
 
 $result = False;
-$lastPrice = get_ticker($tickerFile);
-
-$interval = $lastPrice * $intervalPercentage;
-
-$target = is_buy($type) ? $lastPrice + $lastPrice * $targetPercent :  $lastPrice - $lastPrice * $targetPercent;
+$openPrice = get_ticker($tickerFile);
+$target = is_buy($type) ? $openPrice + $openPrice * $targetPercent :  $openPrice - $openPrice * $targetPercent;
 
 $order = False;
 do {
@@ -196,23 +184,17 @@ if (!is_array($order) or is_array($order) and empty($order)) {
 
 $log->info("Position has been created on Bitmex", ['info'=>$order]);
 $log->info("Target is at price", ['Target'=>$target]);
-$log->info("Interval is", ['Interval'=>$interval]);
-
-$close = is_buy($type) ? $lastPrice - $interval :  $lastPrice + $interval;
-$log->info("Setting current Stoploss price", ['Stop Loss'=>$close]);
-
+$log->info("Interval is", ['Interval'=>$stopLossInterval]);
+$log->info("Setting current Stoploss price", ['Stop Loss'=>$openPrice+$stopLossInterval]);
+$stopLossFlag = false;
 do {
-
     $tmpLastPrice = get_ticker($tickerFile);
-    if($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
-        if ($newIntervalFlag) {
-            $interval = $interval * $newIntervalFlag;
-            $log->info("Target was reached, setting new interval", ['interval'=>$interval]);
-            $newIntervalFlag = 0;
-        }
+    $openProfit = is_buy($type) ? $tmpLastPrice - $openPrice: $openPrice - $tmpLastPrice;
+    if ($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
+            $stopLossInterval = $openProfit*2;
+            $log->info("Target was reached, setting new stop loss interval", ['interval'=>$interval]);
     }
-    if ($tmpLastPrice > $close and !is_buy($type) or $tmpLastPrice < $close and is_buy($type)) {
-        $close = False;
+    if ($openProfit < $stopLossInterval) {
         $log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
         do {
             try {
@@ -220,24 +202,15 @@ do {
             } catch (Exception $e) {
                 $log->error("Failed closing positions", ['error'=>$e]);
             }
-
         } while ($close == False);
         $log->info("Trade has closed successfully", ['info'=>$close]);
         exit();
     }
-    if($tmpLastPrice < $lastPrice and !is_buy($type)) {
-        $lastPrice = $tmpLastPrice;
-        $close = $lastPrice + $interval;
-        $log->info("Price moved down", ['Last Price'=>$lastPrice]);
-        $log->info("Updating entry to stop loss at price", ['Stop Loss'=>$close]);
+    if ($openProfit > -$stopLossInterval and !$stopLossFlag) {
+        $stopLossFlag = true;
+        $stopLossInterval = 0;
+        $log->info("Position reached Profits that are bigger than stopLoss.", ['Stop Loss profits'=>$openProfit]);
     }
-    if($tmpLastPrice > $lastPrice and is_buy($type)) {
-        $lastPrice = $tmpLastPrice;
-        $close = $lastPrice - $interval;
-        $log->info("Price moved up", ['Last Price'=>$lastPrice]);
-        $log->info("Updating entry to stop loss at price", ['Stop Loss'=>$close]);
-    }
-
     sleep(1);
 } while (1);
 
