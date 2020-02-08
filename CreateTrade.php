@@ -67,35 +67,31 @@ if (isset($argv[1]) and intval($argv[1]) <= sizeof($tradeSymbols)) {
     $symbol = $tradeSymbols[intval($argv[1])];
 }
 else {
-    echo 'Error: '.$argv[1].' is not a valid symbol'."\n";
+    $log->error($argv[1].' is not a valid symbol');
     exit();
 }
 if (isset($argv[2])) {
     $stopLossInterval = -$argv[2];
 }
-else {
-    echo 'Error: '.$argv[2]. ' is not a valid interval'."\n";
-    exit();
-}
 if (isset($argv[3]) and 0.001 < $argv[3] and $argv[3] < 100) {
     $targetPercent = floatval($argv[3]) / 100;
 }
 else {
-    echo 'Error: '.$argv[3]. ' is not a valid target'."\n";
+    $log->error($argv[3]. ' is not a valid target');
     exit();
 }
 if (isset($argv[4]) and in_array($argv[4], $tradeTypes)) {
     $type = $argv[4];
 }
 else {
-    echo 'Error: '.$argv[4]. ' is not a valid trade type'."\n";
+    $log->error($argv[4]. ' is not a valid trade type');
     exit();
 }
 if (isset($argv[5])) {
     $amount = $argv[5];
 }
 else {
-     echo 'Error: not a valid amount'."\n";
+     $log->error('not a valid amount');
      exit();
 }
 if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
