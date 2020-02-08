@@ -139,13 +139,33 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     }
 }
 if (isset($argv[6]) and $argv[6] == "reverse_pos") {
-    try {
-        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount*2);
-        sleep(1);
-    } catch (Exception $e) {
-        $log->error("Failed to create/close position", ['error'=>$e]);
+    $currentFileName = 'reverse_'.get_opposite_trade_type($type);
+    $nextFileName = 'reverse_'.$type;
+    if (file_exists($currentFileName)) {
+        try {
+            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount*2);
+            sleep(1);
+        } catch (Exception $e) {
+            $log->error("Failed to create/close position", ['error'=>$e]);
+        }
+        shell_exec('rm '.$currentFileName);
+        shell_exec('touch '.$nextFileName);
+        exit();
     }
-    exit();
+    elseif (!file_exists($nextFileName)) {
+        try {
+            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+            sleep(1);
+        } catch (Exception $e) {
+            $log->error("Failed to create/close position", ['error'=>$e]);
+        }
+        shell_exec('touch '.$nextFileName);
+        exit();
+    }
+    else {
+        $log->warning("Reverse possision of this type exists", ['type'=>$type]);
+        exit();
+    }
 }
 
 
