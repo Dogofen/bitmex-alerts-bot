@@ -17,8 +17,9 @@ class GmailClient {
     public $oldMessagesIds = array();
 
     public $cli;
+    public $logger;
 
-    public function __construct() {
+    public function __construct($logger) {
 
         $client = new Google_Client();
         $client->setApplicationName('Gmail API PHP Quickstart');
@@ -65,6 +66,7 @@ class GmailClient {
             file_put_contents($tokenPath, json_encode($client->getAccessToken()));
         }
         $this->cli = $client;
+        $this->logger = $logger;
     }
 
     public function listMessages() {
@@ -84,7 +86,7 @@ class GmailClient {
             $pageToken = $messagesResponse->getNextPageToken();
           }
         } catch (Exception $e) {
-          print 'An error occurred: ' . $e->getMessage();
+          $this->logger->error('An error occurred at listMessages: ', ['error'=>$e->getMessage()]);
         }
       } while ($pageToken);
 
@@ -98,7 +100,7 @@ class GmailClient {
                 array_push($this->oldMessagesIds, $message['id']);
             }
         } catch (Exception $e) {
-            print 'An error occurred: ' . $e->getMessage();
+            $this->logger->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
         }
     }
 
@@ -109,7 +111,7 @@ class GmailClient {
             $message = $service->users_messages->get($this->userId, $messageId);
             return $message;
         } catch (Exception $e) {
-            print 'An error occurred: ' . $e->getMessage();
+            $this->logger->error('An error occurred at getMessage: ', ['error'=>$e->getMessage()]);
         }
     }
 
@@ -124,7 +126,7 @@ class GmailClient {
             }
             return False;
         }   catch (Exception $e) {
-            print 'An error occurred: ' . $e->getMessage();
+            $this->logger->error('An error occurred at isMessageAlert: ', ['error'=>$e->getMessage()]);
         }
     }
 
@@ -138,7 +140,7 @@ class GmailClient {
             }
             return False;
         }   catch (Exception $e) {
-            print 'An error occurred: ' . $e->getMessage();
+            $this->logger->error('An error occurred at getAlertSubject: ', ['error'=>$e->getMessage()]);
         }
     }
 
@@ -153,7 +155,7 @@ class GmailClient {
             }
             return $newMessagesIds;
         }   catch (Exception $e) {
-            print 'An error occurred: ' . $e->getMessage();
+            $this->logger->error('An error occurred at getNewMessagesIds: ', ['error'=>$e->getMessage()]);
         }
     }
 

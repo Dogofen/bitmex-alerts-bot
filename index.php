@@ -6,9 +6,6 @@ require_once("GmailClient.php");
 require_once("BitMex.php");
 $config = include('config.php');
 // Get the API client and construct the service object.
-$gmailClient = new GmailClient();
-$gmailClient->populateMessagesIds();
-$bitmex = new BitMex($config['key'],$config['secret']);
 
 $ticker =".ticker.txt";
 $timestamp = date("Y-m-d_H:i:s");
@@ -28,6 +25,9 @@ $log->pushProcessor(function ($entry) use($startTime) {
     return $entry;
 });
 
+$gmailClient = new GmailClient($log);
+$gmailClient->populateMessagesIds();
+$bitmex = new BitMex($config['key'],$config['secret']);
 $log->info("Bot index has started", ['info'=>'start']);
 
 while(1) {
