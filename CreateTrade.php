@@ -128,8 +128,9 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     }
 }
 if (isset($argv[6]) and $argv[6] == "reverse_pos") {
-    $currentFileName = 'reverse_'.get_opposite_trade_type($type);
-    $nextFileName = 'reverse_'.$type;
+    $pid = $argv[7];
+    $currentFileName = 'reverse_'.get_opposite_trade_type($type).'_'.$pid;
+    $nextFileName = 'reverse_'.$type.'_'.$pid;
     if (file_exists($currentFileName)) {
         try {
             $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount*2);
