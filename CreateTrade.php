@@ -62,6 +62,7 @@ function get_ticker($file) {
 $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
 $strategies = array('only_execute', 'reverse_pos');
+$pid = false;
 
 if (isset($argv[1]) and intval($argv[1]) <= sizeof($tradeSymbols)) {
     $symbol = $tradeSymbols[intval($argv[1])];
@@ -158,11 +159,29 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     }
 }
 
+if (isset($argv[6]) and $argv[6] == "with_id") {
+    $pid = $argv[7];
+    $currentFileName = $type.'_with_id_'.$pid;
+    if (file_exists($currentFileName)) {
+        $log->warning("possition of this type exists", ['type'=>$type]);
+        exit();
+    }
+    else {
+        shell_exec('touch '.$currentFileName);
+    }
+}
+
 $bitmex->setLeverage($config['leverage'], $symbol);
 
 $result = False;
 $openPrice = get_ticker($tickerFile);
-$target = is_buy($type) ? $openPrice + $openPrice * $targetPercent :  $openPrice - $openPrice * $targetPercent;
+$tradeInterval =  is_buy($type) ?$openPrice * $targetPercent : - $openPrice * $targetPercent;
+$target = $openPrice + $tradeInterval;
+$fibArray = array(
+    array(abs(0.786*$tradeInterval), abs(0.382*$tradeInterval)),
+    array(abs(0.618*$tradeInterval), abs(0.236*$tradeInterval)),
+    array(abs($stopLossInterval), 0)
+);
 
 $order = False;
 do {
@@ -178,12 +197,10 @@ if (!is_array($order) or is_array($order) and empty($order)) {
     exit();
 }
 
-
 $log->info("Position has been created on Bitmex", ['info'=>$order]);
 $log->info("Target is at price", ['Target'=>$target]);
-$log->info("Interval is", ['Interval'=>$stopLossInterval]);
-$log->info("Setting current Stoploss price", ['Stop Loss'=>$openPrice+$stopLossInterval]);
-$stopLossFlag = false;
+$log->info("Interval is", ['Interval'=>$fibArray]);
+$profitPair = array_pop($fibArray);
 do {
     $tmpLastPrice = get_ticker($tickerFile);
     $openProfit = is_buy($type) ? $tmpLastPrice - $openPrice: $openPrice - $tmpLastPrice;
@@ -200,13 +217,21 @@ do {
                 $log->error("Failed closing positions", ['error'=>$e]);
             }
         } while ($close == False);
+        if ($pid != false) {
+            shell_exec('rm '.$type.'_with_id_'.$pid);
+        }
         $log->info("Trade has closed successfully", ['info'=>$close]);
         exit();
     }
-    if ($openProfit > -$stopLossInterval and !$stopLossFlag) {
-        $stopLossFlag = true;
-        $stopLossInterval = 0;
-        $log->info("Position reached Profits that are bigger than stopLoss.", ['Stop Loss profits'=>$openProfit]);
+    if ($openProfit > $profitPair[0] and is_array($fibArray)) {
+        $stopLossInterval = $profitPair[1];
+        $log->info("Position reached Profits that are bigger than threshold.", ['Stop Loss profits'=>$stopLossInterval]);
+        if (sizeof($fibArray) > 0) {
+            $profitPair = array_pop($fibArray);
+        }
+        else {
+            $fibArray = false;
+        }
     }
     sleep(1);
 } while (1);
