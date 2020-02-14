@@ -154,7 +154,6 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
         exit();
     }
     else {
-        $log->warning("Reverse possision of this type exists", ['type'=>$type]);
         exit();
     }
 }
@@ -163,7 +162,6 @@ if (isset($argv[6]) and $argv[6] == "with_id") {
     $pid = $argv[7];
     $currentFileName = $type.'_with_id_'.$pid;
     if (file_exists($currentFileName)) {
-        $log->warning("possition of this type exists", ['type'=>$type]);
         exit();
     }
     else {
