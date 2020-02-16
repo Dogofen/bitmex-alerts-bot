@@ -102,6 +102,10 @@ class GmailClient {
         }
     }
 
+    public function populateMessageId($msgId) {
+        array_push($this->oldMessagesIds, $msgId);
+    }
+
     public function getMessage($messageId) {
         $service = new Google_Service_Gmail($this->cli);
 

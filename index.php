@@ -60,16 +60,11 @@ while(1) {
             } catch (Exception $e) {
                 $log->error('An error occurred at getMessage or getAlertSubject: ', ['error'=>$e->getMessage()]);
             }
-            $log->info("Params of message", ['params'=>$params]);
             $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
             $log->info('Command was sent to Trader', ['command'=>$command]);
             $res = $gmailClient->isMessageAlert($msg);
             $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
-        }
-        try {
-            $gmailClient->populateMessagesIds();
-        } catch (Exception $e) {
-            $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
+            $gmailClient->populateMessageId($msgId);
         }
     }
 }
