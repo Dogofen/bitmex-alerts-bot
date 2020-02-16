@@ -17,7 +17,6 @@ class GmailClient {
     public $oldMessagesIds = array();
 
     public $cli;
-    public $logger;
 
     public function __construct() {
 
@@ -66,7 +65,6 @@ class GmailClient {
             file_put_contents($tokenPath, json_encode($client->getAccessToken()));
         }
         $this->cli = $client;
-        $this->logger = $logger;
     }
 
     public function listMessages() {
