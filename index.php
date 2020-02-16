@@ -26,12 +26,15 @@ $log->pushProcessor(function ($entry) use($startTime) {
 });
 
 $gmailClient = new GmailClient($log);
-$gmailClient->populateMessagesIds();
+try {
+    $gmailClient->populateMessagesIds();
+} catch (Exception $e) {
+    $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
+}
 $bitmex = new BitMex($config['key'],$config['secret']);
 $log->info("Bot index has started", ['info'=>'start']);
 
 while(1) {
-    $msgs = $gmailClient->getNewMessagesIds();
     try {
         $result = $bitmex->getTicker('XBTUSD');
         file_put_contents($ticker,  strval($result["last"]));
@@ -39,17 +42,35 @@ while(1) {
         $log->error("Failed retrieving ticker", ['error'=>$e]);
     }
 
+    try {
+        $msgs = $gmailClient->getNewMessagesIds();
+    } catch (Exception $e) {
+         $log->error('An error occurred at getNewMessagesIds: ', ['error'=>$e->getMessage()]);
+    }
+
     if(empty($msgs)) {
         sleep(2);
     }
     else {
-        $msg = $gmailClient->getMessage($msgs[0]);
-        $params = $gmailClient->getAlertSubject($msg);
-        $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
-        $log->info('Command was sent to Trader', ['command'=>$command]);
-        $res = $gmailClient->isMessageAlert($msg);
-        $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
-        $gmailClient->populateMessagesIds();
+        $log->info("New messages fetched", ['messages'=>$msgs]);
+        foreach($msgs as $msgId) {
+            try {
+                $msg = $gmailClient->getMessage($msgId);
+                $params = $gmailClient->getAlertSubject($msg);
+            } catch (Exception $e) {
+                $log->error('An error occurred at getMessage or getAlertSubject: ', ['error'=>$e->getMessage()]);
+            }
+            $log->info("Params of message", ['params'=>$params]);
+            $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
+            $log->info('Command was sent to Trader', ['command'=>$command]);
+            $res = $gmailClient->isMessageAlert($msg);
+            $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
+        }
+        try {
+            $gmailClient->populateMessagesIds();
+        } catch (Exception $e) {
+            $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
+        }
     }
 }
 ?>
