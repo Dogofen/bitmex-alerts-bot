@@ -61,7 +61,7 @@ while(1) {
                 $log->error('An error occurred at getMessage or getAlertSubject: ', ['error'=>$e->getMessage()]);
             }
             $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
-            $log->info('Command was sent to Trader', ['command'=>$command]);
+            $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
             $res = $gmailClient->isMessageAlert($msg);
             $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
             $gmailClient->populateMessageId($msgId);

@@ -152,7 +152,7 @@ class GmailClient {
             $messages = $this->listMessages();
             foreach($messages as $message) {
                 if(!in_array($message['id'], $this->oldMessagesIds)) {
-                    array_push($newMessagesIds, $message['id']);;
+                    array_push($newMessagesIds, $message['id']);
                 }
             }
             return $newMessagesIds;

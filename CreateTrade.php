@@ -7,7 +7,7 @@ $config = include('config.php');
 $tickerFile =  getcwd().'/.ticker.txt';
 
 $timestamp = date("Y-m-d_H:i:s");
-$logPath = getcwd().'/trade'.$timestamp.'.log';
+$logPath = getcwd().'/Trades.log';
 $startTime = microtime(true);
 $log = new Logger('BOT');
 $log->pushHandler(new StreamHandler($logPath, Logger::DEBUG));
