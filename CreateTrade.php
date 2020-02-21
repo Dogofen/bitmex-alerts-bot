@@ -100,12 +100,12 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     if (strpos($argv[7], 'longSig') !== false or strpos($argv[7], 'shortSig') !== false) {
         if (!file_exists(getcwd().'/long_'.$pid) and !file_exists(getcwd().'/short_'.$pid)) {
             $fileName = strpos($argv[7], 'longSig') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
-            shell_exec('touch '.$fileName);
             try {
                 $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
             } catch (Exception $e) {
                 $log->error("Failed to create/close position", ['error'=>$e]);
             }
+            shell_exec('touch '.$fileName);
             exit();
         }
         else {
@@ -115,12 +115,12 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     }
     if (strpos($argv[7], 'closeShort') !== false and file_exists(getcwd().'/short_'.$pid) or strpos($argv[7], 'closeLong') !== false and file_exists(getcwd().'/long_'.$pid)) {
         $fileName = strpos($argv[7], 'closeLong') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
-        shell_exec('rm '.$fileName);
         try {
             $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
         } catch (Exception $e) {
             $log->error("Failed to create/close position", ['error'=>$e]);
         }
+        shell_exec('rm '.$fileName);
         exit();
     }
     else {
@@ -168,12 +168,11 @@ if (isset($argv[6]) and $argv[6] == "with_id") {
         shell_exec('touch '.$currentFileName);
     }
 }
-
 $bitmex->setLeverage($config['leverage'], $symbol);
 
 $result = False;
 $openPrice = get_ticker($tickerFile);
-$tradeInterval =  is_buy($type) ?$openPrice * $targetPercent : - $openPrice * $targetPercent;
+$tradeInterval =  is_buy($type) ? $openPrice * $targetPercent : - $openPrice * $targetPercent;
 $target = $openPrice + $tradeInterval;
 $fibArray = array(
     array(abs(0.786*$tradeInterval), abs(0.382*$tradeInterval)),

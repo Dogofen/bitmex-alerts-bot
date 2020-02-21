@@ -2,9 +2,8 @@
 
 while true
 do
-    pid=`ps -aux | grep "php $HOME/bitmex-alerts-bot/index.php" | awk '{ print $2}'`
-    pid=`echo $pid | awk '{ print $1}'`
-    kill -9 $pid
     php $HOME/bitmex-alerts-bot/index.php &
+    pid=`echo $!`
     sleep 14400
+    kill -9 $pid
 done

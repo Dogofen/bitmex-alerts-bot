@@ -63,9 +63,15 @@ class BitMex {
       "high" => $return[0]['highPrice'],
       "low" => $return[0]['lowPrice']
     );
-
-    return $return;
-
+    if ($return==false) {
+        throw new Exception("Failed to create an order");
+    }
+    elseif (is_array($return) and in_array($symbol, $return)) {
+        return $return;
+    }
+    else {
+        throw new Exception("Failed to create an order probaly network with bitmex server");
+    }
   }
 
   /*
@@ -297,7 +303,16 @@ class BitMex {
       $data['params']['execInst'] = "ParticipateDoNotInitiate";
     }
 
-    return $this->authQuery($data);
+    $ans = $this->authQuery($data);
+    if (!$ans) {
+        throw new Exception("Failed to create an order");
+    }
+    elseif (is_array($ans) and in_array($symbol, $ans)) {
+        return $ans;
+    }
+    else {
+        throw new Exception("Failed to create an order probaly network with bitmex server");
+    }
   }
 
   /*
