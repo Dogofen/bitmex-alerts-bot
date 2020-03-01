@@ -1,9 +1,15 @@
 #!/bin/bash
 
+FILE='restart_bot'
+php $HOME/bitmex-alerts-bot/index.php &
+pid=`echo $!`
 while true
 do
+    if [ -f "$FILE" ]; then
+    kill -9 $pid
     php $HOME/bitmex-alerts-bot/index.php &
     pid=`echo $!`
-    sleep 14400
-    kill -9 $pid
+    rm $FILE
+    fi
+    sleep 1
 done

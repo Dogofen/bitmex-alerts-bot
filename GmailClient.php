@@ -84,7 +84,7 @@ class GmailClient {
             $pageToken = $messagesResponse->getNextPageToken();
           }
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
       } while ($pageToken);
 
@@ -98,7 +98,7 @@ class GmailClient {
                 array_push($this->oldMessagesIds, $message['id']);
             }
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
     }
 
@@ -113,7 +113,7 @@ class GmailClient {
             $message = $service->users_messages->get($this->userId, $messageId);
             return $message;
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
     }
 
@@ -128,7 +128,7 @@ class GmailClient {
             }
             return False;
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
     }
 
@@ -142,7 +142,7 @@ class GmailClient {
             }
             return False;
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
     }
 
@@ -157,7 +157,7 @@ class GmailClient {
             }
             return $newMessagesIds;
         } catch (Exception $e) {
-            return $e;
+            throw new Exception($e);
         }
     }
 

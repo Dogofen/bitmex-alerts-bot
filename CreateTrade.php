@@ -1,26 +1,12 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 require_once("BitMex.php");
+require_once("log.php");
 $config = include('config.php');
 $tickerFile =  getcwd().'/.ticker.txt';
 
-$timestamp = date("Y-m-d_H:i:s");
 $logPath = getcwd().'/Trades.log';
-$startTime = microtime(true);
-$log = new Logger('BOT');
-$log->pushHandler(new StreamHandler($logPath, Logger::DEBUG));
-$log->pushProcessor(function ($entry) use($startTime) {
-    $endTime = microtime(true);
-    $s = $endTime - $startTime;
-    $h = floor($s / 3600);
-    $s -= $h * 3600;
-    $m = floor($s / 60);
-    $s -= $m * 60;
-     $entry['extra']['Time Elapsed'] = $h.':'.sprintf('%02d', $m).':'.sprintf('%02d', $s);
-    return $entry;
-});
+$log = create_logger($logPath);
 
 $bitmex = new BitMex($config['key'],$config['secret']);
 
@@ -203,7 +189,7 @@ do {
     $openProfit = is_buy($type) ? $tmpLastPrice - $openPrice: $openPrice - $tmpLastPrice;
     if ($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
             $stopLossInterval = $openProfit*2;
-            $log->info("Target was reached, setting new stop loss interval", ['interval'=>$interval]);
+            $log->info("Target was reached, setting new stop loss interval", ['lastPrice'=>$tmpLastPrice]);
     }
     if ($openProfit < $stopLossInterval) {
         $log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
