@@ -100,6 +100,7 @@ class GmailClient {
         } catch (Exception $e) {
             throw new Exception($e);
         }
+        return $this->oldMessagesIds;
     }
 
     public function populateMessageId($msgId) {
@@ -160,6 +161,16 @@ class GmailClient {
             throw new Exception($e);
         }
     }
+
+    public function getLastMessages() {
+        try {
+            $messages = $this->listMessages();
+        } catch (Exception $e) {
+            throw new Exception($e);
+        }
+        return array_slice($messages, 0, 10);
+    }
+
 
 //    public function getMessageSender(
 }

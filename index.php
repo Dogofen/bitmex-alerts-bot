@@ -8,7 +8,7 @@ $config = include('config.php');
 $logPath =  getcwd().'/index.log';
 $log = create_logger($logPath);
 $ticker =".ticker.txt";
-$gmailClient = new GmailClient();
+$oldMessagesIds = false;
 
 function verify_trade_exists($argv) {
     $tradeTypes = array('Buy', 'Sell');
@@ -32,13 +32,17 @@ function verify_trade_exists($argv) {
     return true;
 }
 
-try {
-    $gmailClient->populateMessagesIds();
-} catch (Exception $e) {
-    $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
-    $log->info("restarting Bot");
-    shell_exec("touch restart_bot");
-}
+$gmailClient = new GmailClient();
+
+do {
+    try {
+        $oldMessagesIds = include("populateMessagesIds.php");
+    } catch (Exception $e) {
+        $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
+        continue;
+    }
+} while (!is_array($oldMessagesIds));
+
 $bitmex = new BitMex($config['key'],$config['secret']);
 $log->info("Bot index has started", ['info'=>'start']);
 
@@ -50,27 +54,32 @@ while(1) {
         $log->error("Failed retrieving ticker", ['error'=>$e]);
     }
 
-    try {
-        $msgs = $gmailClient->getNewMessagesIds();
-    } catch (Exception $e) {
+    $messages = false;
+    do {
+        try {
+            $messages = include('getLastMessages.php');
+        } catch (Exception $e) {
          $log->error('An error occurred at getNewMessagesIds: ', ['error'=>$e->getMessage()]);
-         $log->info("restarting Bot");
-         shell_exec("touch restart_bot");
-    }
+        }
+    } while (!is_array($messages));
 
-    if(empty($msgs)) {
-        sleep(2);
+    $newMessagesIds = array();
+    foreach($messages as $message) {
+        if(!in_array($message['id'], $oldMessagesIds)) {
+            array_push($newMessagesIds, $message['id']);
+        }
+    }
+    if(empty($newMessagesIds)) {
+        sleep(60);
     }
     else {
-        $log->info("New messages fetched", ['messages'=>$msgs]);
-        foreach($msgs as $msgId) {
+        $log->info("New messages fetched", ['messages'=>$newMessagesIds]);
+        foreach($newMessagesIds as $msgId) {
             try {
                 $msg = $gmailClient->getMessage($msgId);
                 $params = $gmailClient->getAlertSubject($msg);
             } catch (Exception $e) {
                 $log->error('An error occurred at getMessage or getAlertSubject: ', ['error'=>$e->getMessage()]);
-                $log->info("restarting Bot");
-                shell_exec("touch restart_bot");
             }
             if (verify_trade_exists(explode(' ', $params))) {
                 $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
@@ -78,7 +87,7 @@ while(1) {
                 $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
                 $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
             }
-            $gmailClient->populateMessageId($msgId);
+            array_push($oldMessagesIds, $msgId);
         }
     }
 }
