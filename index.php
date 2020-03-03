@@ -32,19 +32,17 @@ function verify_trade_exists($argv) {
     return true;
 }
 
-$gmailClient = new GmailClient();
-
-do {
-    try {
-        $oldMessagesIds = include("populateMessagesIds.php");
-    } catch (Exception $e) {
-        $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
-        continue;
-    }
-} while (!is_array($oldMessagesIds));
-
 $bitmex = new BitMex($config['key'],$config['secret']);
 $log->info("Bot index has started", ['info'=>'start']);
+
+$gmailClient = new GmailClient();
+try {
+    $gmailClient->populateMessagesIds();
+} catch (Exception $e) {
+    $log->error('An error occurred at populateMessagesIds: ', ['error'=>$e->getMessage()]);
+}
+
+
 
 while(1) {
     try {
@@ -54,24 +52,16 @@ while(1) {
         $log->error("Failed retrieving ticker", ['error'=>$e]);
     }
 
-    $messages = false;
-    do {
-        try {
-            $messages = include('getLastMessages.php');
-        } catch (Exception $e) {
-         $log->error('An error occurred at getNewMessagesIds: ', ['error'=>$e->getMessage()]);
-        }
-    } while (!is_array($messages));
-
-    $newMessagesIds = array();
-    foreach($messages as $message) {
-        if(!in_array($message['id'], $oldMessagesIds)) {
-            array_push($newMessagesIds, $message['id']);
-        }
+    try {
+        $newMessagesIds = $gmailClient->getNewMessagesIds();
+    } catch (Exception $e) {
+        $log->error('An error occurred at getLastMessages: ', ['error'=>$e->getMessage()]);
     }
+
     if(empty($newMessagesIds)) {
         sleep(60);
     }
+
     else {
         $log->info("New messages fetched", ['messages'=>$newMessagesIds]);
         foreach($newMessagesIds as $msgId) {
@@ -87,7 +77,7 @@ while(1) {
                 $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
                 $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
             }
-            array_push($oldMessagesIds, $msgId);
+            $gmailClient->populateMessageId($msgId);
         }
     }
 }

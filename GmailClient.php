@@ -10,6 +10,7 @@ if (php_sapi_name() != 'cli') {
  */
 class GmailClient {
     const CREDS = 'credentials.json';
+    const MESSEGESFILEOBJ = 'messages_ids.json';
     const ALERT_MAIL = 'TradingView <noreply@tradingview.com>';
     const ALERT_HEADER = 'TradingView Alert: ';
 
@@ -65,6 +66,7 @@ class GmailClient {
             file_put_contents($tokenPath, json_encode($client->getAccessToken()));
         }
         $this->cli = $client;
+        shell_exec('touch '.SELF::MESSEGESFILEOBJ);
     }
 
     public function listMessages() {
@@ -93,18 +95,21 @@ class GmailClient {
 
     public function populateMessagesIds() {
         try {
-            $messages = $this->listMessages();
+            $messages = json_decode(file_get_contents(SELF::MESSEGESFILEOBJ), true);
+            if (empty($messages)) {
+                return;
+            }
             foreach($messages as $message) {
-                array_push($this->oldMessagesIds, $message['id']);
+                array_push($this->oldMessagesIds, $message);
             }
         } catch (Exception $e) {
             throw new Exception($e);
         }
-        return $this->oldMessagesIds;
     }
 
     public function populateMessageId($msgId) {
         array_push($this->oldMessagesIds, $msgId);
+        file_put_contents(SELF::MESSEGESFILEOBJ,json_encode($this->oldMessagesIds));
     }
 
     public function getMessage($messageId) {
@@ -156,10 +161,10 @@ class GmailClient {
                     array_push($newMessagesIds, $message['id']);
                 }
             }
-            return $newMessagesIds;
         } catch (Exception $e) {
             throw new Exception($e);
         }
+        return $newMessagesIds;
     }
 
     public function getLastMessages() {

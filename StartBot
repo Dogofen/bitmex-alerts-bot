@@ -5,11 +5,10 @@ php $HOME/bitmex-alerts-bot/index.php &
 pid=`echo $!`
 while true
 do
-    if [ -f "$FILE" ]; then
-    kill -9 $pid
-    php $HOME/bitmex-alerts-bot/index.php &
-    pid=`echo $!`
-    rm $FILE
+    if [ $((`date +%s` - `stat -c %Z messages_ids.json`)) > 400 ]; then
+        kill -9 $pid
+        php $HOME/bitmex-alerts-bot/index.php &
+        pid=`echo $!`
     fi
     sleep 1
 done
