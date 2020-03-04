@@ -45,6 +45,21 @@ function get_ticker($file) {
     return $lastPrice;
 }
 
+function true_create_order($symbol, $type, $amount, $log, $bitmex) {
+    do {
+        try {
+            //$order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+        } catch (Exception $e) {
+            $log->error("Failed to create/close position", ['error'=>$e]);
+            sleep(1);
+            continue;
+        }
+        $log->info("Position has been created on Bitmex", ['info'=>$order]);
+        break;
+    } while (1);
+
+}
+
 $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
 $tradeTypes = array('Buy', 'Sell');
 $strategies = array('only_execute', 'reverse_pos');
@@ -86,11 +101,7 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     if (strpos($argv[7], 'longSig') !== false or strpos($argv[7], 'shortSig') !== false) {
         if (!file_exists(getcwd().'/long_'.$pid) and !file_exists(getcwd().'/short_'.$pid)) {
             $fileName = strpos($argv[7], 'longSig') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
-            try {
-                $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-            } catch (Exception $e) {
-                $log->error("Failed to create/close position", ['error'=>$e]);
-            }
+            true_create_order($symbol, $type, $amount, $log, $bitmex);
             shell_exec('touch '.$fileName);
             exit();
         }
@@ -101,11 +112,7 @@ if (isset($argv[6]) and $argv[6] == "only_execute" and isset($argv[7])) {
     }
     if (strpos($argv[7], 'closeShort') !== false and file_exists(getcwd().'/short_'.$pid) or strpos($argv[7], 'closeLong') !== false and file_exists(getcwd().'/long_'.$pid)) {
         $fileName = strpos($argv[7], 'closeLong') !== false ? getcwd().'/long_'.$pid:getcwd().'/short_'.$pid;
-        try {
-            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-        } catch (Exception $e) {
-            $log->error("Failed to create/close position", ['error'=>$e]);
-        }
+        true_create_order($symbol, $type, $amount, $log, $bitmex);
         shell_exec('rm '.$fileName);
         exit();
     }
@@ -119,23 +126,13 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     $currentFileName = 'reverse_'.get_opposite_trade_type($type).'_'.$pid;
     $nextFileName = 'reverse_'.$type.'_'.$pid;
     if (file_exists($currentFileName)) {
-        try {
-            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount*2);
-            sleep(1);
-        } catch (Exception $e) {
-            $log->error("Failed to create/close position", ['error'=>$e]);
-        }
+        true_create_order($symbol, $type, $amount, $log, $bitmex);
         shell_exec('rm '.$currentFileName);
         shell_exec('touch '.$nextFileName);
         exit();
     }
     elseif (!file_exists($nextFileName)) {
-        try {
-            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-            sleep(1);
-        } catch (Exception $e) {
-            $log->error("Failed to create/close position", ['error'=>$e]);
-        }
+        true_create_order($symbol, $type, $amount, $log, $bitmex);
         shell_exec('touch '.$nextFileName);
         exit();
     }
@@ -161,62 +158,43 @@ $openPrice = get_ticker($tickerFile);
 $tradeInterval =  is_buy($type) ? $openPrice * $targetPercent : - $openPrice * $targetPercent;
 $target = $openPrice + $tradeInterval;
 $fibArray = array(
-    array(abs(0.786*$tradeInterval), abs(0.382*$tradeInterval)),
-    array(abs(0.618*$tradeInterval), abs(0.236*$tradeInterval)),
-    array(abs($stopLossInterval), 0)
+    array(abs($tradeInterval), 0.4*$amount),
+    array(abs(0.786*$tradeInterval), 0.4*$amount),
+    array(abs(0.618*$tradeInterval), 0.2*$amount),
 );
 
-$order = False;
-do {
-    try {
-        $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
-    } catch (Exception $e) {
-        $log->error("Failed Creating position", ['error'=>$e]);
-    }
-
-} while ($order == False);
-if (!is_array($order) or is_array($order) and empty($order)) {
-    $log->error("Order Failure", ['order'=>$order]);
-    exit();
-}
-
-$log->info("Position has been created on Bitmex", ['info'=>$order]);
+true_create_order($symbol, $type, $amount, $log, $bitmex);
 $log->info("Target is at price", ['Target'=>$target]);
 $log->info("Interval is", ['Interval'=>$fibArray]);
 $profitPair = array_pop($fibArray);
+
+$enterOnce = true;
 do {
     $tmpLastPrice = get_ticker($tickerFile);
     $openProfit = is_buy($type) ? $tmpLastPrice - $openPrice: $openPrice - $tmpLastPrice;
-    if ($tmpLastPrice <= $target and !is_buy($type) or $tmpLastPrice >= $target and is_buy($type)) {
-            $stopLossInterval = $openProfit*2;
-            $log->info("Target was reached, setting new stop loss interval", ['lastPrice'=>$tmpLastPrice]);
-    }
     if ($openProfit < $stopLossInterval) {
         $log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
-        do {
-            try {
-                $close = $bitmex->createOrder($symbol, "Market",get_opposite_trade_type($type), null, $amount);
-            } catch (Exception $e) {
-                $log->error("Failed closing positions", ['error'=>$e]);
-            }
-        } while ($close == False);
+        true_create_order($symbol, get_opposite_trade_type($type), $amount, $log, $bitmex);
         if ($pid != false) {
             shell_exec('rm '.$type.'_with_id_'.$pid);
         }
         $log->info("Trade has closed successfully", ['info'=>$close]);
         exit();
     }
-    if ($openProfit > $profitPair[0] and is_array($fibArray)) {
-        $stopLossInterval = $profitPair[1];
-        $log->info("Position reached Profits that are bigger than threshold.", ['Stop Loss profits'=>$stopLossInterval]);
+    elseif($openProfit > -$stopLossInterval and $enterOnce) {
+        $enterOnce = false;
+        $stopLossInterval = 0;
+        $log->info("Stop Loss is now zero", ['Profits'=>$openProfit]);
+    }
+    if ($openProfit > $profitPair[0]) {
+        $log->info("Target was reached", ['target'=>$profitPair[0]]);
+        true_create_order($symbol, get_opposite_trade_type($type), $profitPair[1] , $log, $bitmex);
+        $amount = $amount - $profitPair[1];
         if (sizeof($fibArray) > 0) {
             $profitPair = array_pop($fibArray);
         }
-        else {
-            $fibArray = false;
-        }
     }
     sleep(1);
-} while (1);
+} while ($amount);
 
 ?>
