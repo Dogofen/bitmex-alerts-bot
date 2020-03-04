@@ -48,7 +48,7 @@ function get_ticker($file) {
 function true_create_order($symbol, $type, $amount, $log, $bitmex) {
     do {
         try {
-            //$order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
+            $order = $bitmex->createOrder($symbol, "Market",$type, null, $amount);
         } catch (Exception $e) {
             $log->error("Failed to create/close position", ['error'=>$e]);
             sleep(1);
