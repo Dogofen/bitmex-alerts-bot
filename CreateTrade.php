@@ -126,7 +126,7 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     $currentFileName = 'reverse_'.get_opposite_trade_type($type).'_'.$pid;
     $nextFileName = 'reverse_'.$type.'_'.$pid;
     if (file_exists($currentFileName)) {
-        true_create_order($symbol, $type, $amount, $log, $bitmex);
+        true_create_order($symbol, $type, 2*$amount, $log, $bitmex);
         shell_exec('rm '.$currentFileName);
         shell_exec('touch '.$nextFileName);
         exit();
