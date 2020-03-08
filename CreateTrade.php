@@ -196,5 +196,8 @@ do {
     }
     sleep(1);
 } while ($amount);
+if ($pid != false) {
+    shell_exec('rm '.$type.'_with_id_'.$pid);
+}
 
 ?>
