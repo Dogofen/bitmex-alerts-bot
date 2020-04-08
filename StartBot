@@ -1,7 +1,7 @@
 #!/bin/bash
 
-FILE='restart_bot'
-php $HOME/bitmex-alerts-bot/index.php &
+php $PWD/index.php &
+php $PWD/ticker.php &
 pid=`echo $!`
 sleep 2
 while true

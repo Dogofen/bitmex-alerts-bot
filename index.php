@@ -1,13 +1,10 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
 require_once("GmailClient.php");
-require_once("BitMex.php");
 require_once('log.php');
-$config = include('config.php');
 
 $logPath =  getcwd().'/index.log';
 $log = create_logger($logPath);
-$ticker =".ticker.txt";
 $oldMessagesIds = false;
 
 function verify_trade_exists($argv) {
@@ -32,10 +29,9 @@ function verify_trade_exists($argv) {
     return true;
 }
 
-$bitmex = new BitMex($config['key'],$config['secret']);
 $log->info("Bot index has started", ['info'=>'start']);
-
 $gmailClient = new GmailClient();
+
 try {
     $gmailClient->populateMessagesIds();
 } catch (Exception $e) {
@@ -45,13 +41,6 @@ try {
 
 
 while(1) {
-    try {
-        $result = $bitmex->getTicker('XBTUSD');
-        file_put_contents($ticker,  strval($result["last"]));
-    } catch (Exception $e) {
-        $log->error("Failed retrieving ticker", ['error'=>$e]);
-    }
-
     try {
         $newMessagesIds = $gmailClient->getNewMessagesIds();
     } catch (Exception $e) {

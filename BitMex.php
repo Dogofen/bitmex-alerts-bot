@@ -7,11 +7,12 @@
 class BitMex {
 
   //const API_URL = 'https://testnet.bitmex.com';
-  const API_URL = 'https://www.bitmex.com';
   const API_PATH = '/api/v1/';
 
   private $apiKey;
   private $apiSecret;
+  private $apiUrl;
+
 
   private $ch;
 
@@ -25,10 +26,11 @@ class BitMex {
    * @param string $apiSecret API Secret
    */
 
-  public function __construct($apiKey = '', $apiSecret = '') {
+  public function __construct($apiKey = '', $apiSecret = '', $testNet = false) {
 
     $this->apiKey = $apiKey;
     $this->apiSecret = $apiSecret;
+    $this->apiUrl = $testNet == true ? 'https://testnet.bitmex.com' : 'https://www.bitmex.com';
 
     $this->curlInit();
 
@@ -214,11 +216,7 @@ class BitMex {
     $data['params'] = array(
       "symbol" => "XBTUSD"
     );
-    try {
-        $positions = $this->authQuery($data);
-    } catch (Exception $e) {
-        throw new Exception($e);
-    }
+    $positions = $this->authQuery($data);
 
     $openPositions = array();
     foreach($positions as $position) {
@@ -304,6 +302,7 @@ class BitMex {
     }
 
     $ans = $this->authQuery($data);
+
     if (!$ans) {
         throw new Exception("Failed to create an order");
     }
@@ -442,7 +441,7 @@ class BitMex {
       $params = json_encode($data['params']);
     }
     $path = self::API_PATH . $function;
-    $url = self::API_URL . self::API_PATH . $function;
+    $url = $this->apiUrl . self::API_PATH . $function;
     if($method == "GET" && count($data['params']) >= 1) {
       $url .= "?" . $params;
       $path .= "?" . $params;
@@ -491,22 +490,22 @@ class BitMex {
     if(!$return) {
       $this->curlError();
       $this->error = true;
-      return false;
+      throw new Exception("Curl failed to execute, general failure");
     }
 
-    $return = json_decode($return,true);
+    $return_decoded = json_decode($return,true);
 
-    if(isset($return['error'])) {
-      $this->platformError($return);
-      $this->error = true;
-      return false;
+    if(isset($return_decoded['error'])) {
+        $this->platformError($return_decoded);
+        $this->error = true;
+        throw new Exception($return);
     }
 
     $this->error = false;
     $this->errorCode = false;
     $this->errorMessage = false;
 
-    return $return;
+    return $return_decoded;
 
   }
 
@@ -524,7 +523,7 @@ class BitMex {
 
     $function = $data['function'];
     $params = http_build_query($data['params']);
-    $url = self::API_URL . self::API_PATH . $function . "?" . $params;;
+    $url = $this->apiUrl . self::API_PATH . $function . "?" . $params;;
 
     $headers = array();
 
