@@ -45,10 +45,14 @@ class Trader {
         }
 
         if ($config['testnet']) {
-            $this->env = 'testing';
+            $this->env = 'test';
         }
         else {
             $this->env = 'prod';
+        }
+        if (!(strpos($argv[8], $this->env) !== false)) {
+            $this->log->warning("Trade command does not fit the enviroment exiting.", ['command'=>$argv]);
+            throw new Exception("Wrong enviroment.");
         }
 
         $this->log->info("Trader Class initiated successfuly", ['enviroment'=>$this->env]);
@@ -70,7 +74,7 @@ class Trader {
     }
 
     public function true_create_order($type, $amount) {
-        $this->log->info("Sending a Create Order command", ['type'=>$type.''.$amount.' contracts']);
+        $this->log->info("Sending a Create Order command", ['type'=>$type.' '.$amount.' contracts']);
         do {
             try {
                 $order = $this->bitmex->createOrder($this->symbol, "Market", $type, null, $amount);
@@ -123,15 +127,21 @@ class Trader {
         }
     }
 
-    public function with_id_trade($pidFileName) {
+    public function with_id_trade() {
         $pidFileName = $this->type.'_with_id_'.$this->pid;
+        $pidLastFileName = $this->get_opposite_trade_type().'_with_id_'.$this->pid;
+        $positionFileName = 'reverse_'.$this->type.'_'.$this->pid;
 
-        if (file_exists($pidFileName)) {
+        if (file_exists($pidFileName) or file_exists($pidFileName.'_over')) {
             return;
         }
-        else {
-            shell_exec('touch '.$pidFileName);
+        if (!file_exists($positionFileName)) {
+            return;
         }
+        if (file_exists($pidLastFileName.'_over')) {
+            shell_exec('rm '.$pidLastFileName.'_over');
+        }
+        shell_exec('touch '.$pidFileName);
         $percentage1 = 0.4;
         $percentage2 = 0.2;
 
@@ -140,12 +150,12 @@ class Trader {
         $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
-            array(abs($tradeInterval), $percentage1 * $amount),
+            array(abs($tradeInterval), $percentage1 * $this->amount),
             array(abs(0.786 * $tradeInterval), $percentage1 * $this->amount),
             array(abs(0.618 * $tradeInterval), $percentage2 * $this->amount),
             );
 
-        $this->true_create_order($this->amount);
+        $this->true_create_order($this->type, $this->amount);
         $this->log->info("Target is at price", ['Target'=>$target]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
         $profitPair = array_pop($fibArray);
@@ -157,8 +167,8 @@ class Trader {
 
             if ($openProfit < $this->stopLossInterval) {
                 $this->log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
-                $this->true_create_order(get_opposite_trade_type($type), $this->amount);
-                $log->info("Trade has closed successfully", ['info'=>$close]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
+                $this->log->info("Trade has closed successfully", ['info'=>$close]);
                 break;
             }
             elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
@@ -168,15 +178,21 @@ class Trader {
             }
             if ($openProfit > $profitPair[0]) {
                 $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
-                $this->true_create_order(get_opposite_trade_type($type), $profitPair[1]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $profitPair[1]);
                 $this->amount = $this->amount - $profitPair[1];
                 if (sizeof($fibArray) > 0) {
                     $profitPair = array_pop($fibArray);
                 }
             }
             sleep(1);
-        } while ($amount);
+        } while ($this->amount > 0);
         shell_exec('rm '.$pidFileName);
+        if (file_exists($positionFileName)) {
+            shell_exec('touch '.$pidFileName.'_over');
+            if (file_exists($pidLastFileName.'_over')) {
+                shell_exec('rm '.$pidLastFileName.'_over');
+            }
+        }
     }
 }
 ?>
