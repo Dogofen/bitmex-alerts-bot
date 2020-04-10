@@ -7,7 +7,7 @@ require_once("log.php");
 
 class Trader {
 
-    const TICKER_PATH = '/.ticker.txt';
+    const TICKER_PATH = '.ticker.txt';
     private $log;
     private $bitmex;
 
@@ -67,10 +67,7 @@ class Trader {
     }
 
     public function get_ticker() {
-        $ticker = fopen(getcwd().self::TICKER_PATH, "r");
-        $lastPrice = floatval(fread($ticker, filesize(getcwd().self::TICKER_PATH)));
-        fclose($ticker);
-        return $lastPrice;
+        return unserialize(file_get_contents(self::TICKER_PATH));
     }
 
     public function true_create_order($type, $amount) {
@@ -91,7 +88,7 @@ class Trader {
                 sleep(3);
                 continue;
             }
-            $this->log->info("Position has been created on Bitmex", ['info'=>$order]);
+            $this->log->info("Position has been created on Bitmex", ['OrderId'=>$order['orderID']]);
             break;
         } while (1);
         return true;
@@ -146,7 +143,7 @@ class Trader {
         $percentage2 = 0.2;
 
         $result = False;
-        $openPrice = $this->get_ticker();
+        $openPrice = $this->get_ticker()['last'];
         $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
@@ -162,11 +159,11 @@ class Trader {
         $intervalFlag = true;
 
         do {
-            $tmpLastPrice = $this->get_ticker();
-            $openProfit = $this->is_buy() ? $tmpLastPrice - $openPrice: $openPrice - $tmpLastPrice;
+            $lastPrice = $this->get_ticker()['last'];
+            $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
 
             if ($openProfit < $this->stopLossInterval) {
-                $this->log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$tmpLastPrice]);
+                $this->log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
                 $this->log->info("Trade has closed successfully", ['info'=>$close]);
                 break;

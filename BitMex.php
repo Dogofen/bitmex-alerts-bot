@@ -59,20 +59,21 @@ class BitMex {
 
     $return = array(
       "symbol" => $return[0]['symbol'],
-      "last" => $return[0]['lastPrice'],
-      "bid" => $return[0]['bidPrice'],
-      "ask" => $return[0]['askPrice'],
-      "high" => $return[0]['highPrice'],
-      "low" => $return[0]['lowPrice']
+      "mark"   => $return[0]['markPrice'],
+      "last"   => $return[0]['lastPrice'],
+      "bid"    => $return[0]['bidPrice'],
+      "ask"    => $return[0]['askPrice'],
+      "high"   => $return[0]['highPrice'],
+      "low"    => $return[0]['lowPrice']
     );
     if ($return==false) {
-        throw new Exception("Failed to create an order");
+        throw new Exception("Failed to get a ticker.");
     }
     elseif (is_array($return) and in_array($symbol, $return)) {
         return $return;
     }
     else {
-        throw new Exception("Failed to create an order probaly network with bitmex server");
+        throw new Exception("Failed to get a ticker, probaly network with bitmex server.");
     }
   }
 
