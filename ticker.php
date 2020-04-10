@@ -14,10 +14,16 @@ $bitmex = new BitMex($config['key'],$config['secret'], $config['testnet']);
 while(1) {
     try {
         $result = $bitmex->getTicker('XBTUSD');
-        file_put_contents($ticker,  serialize($result));
     } catch (Exception $e) {
         $log->error("Failed retrieving ticker", ['error'=>$e]);
+        continue;
     }
+    if (!$result) {
+        $log->error("Failed retrieving ticker, Bitmex servers have blocked communication, sleeping for 360 seconds before retrying...", ['result'=>$result]);
+        sleep(360);
+        continue;
+    }
+    file_put_contents($ticker,  serialize($result));
     sleep(2);
 }
 ?>
