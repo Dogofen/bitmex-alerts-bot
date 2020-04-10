@@ -84,6 +84,10 @@ class Trader {
                     $this->log->error("Failed to sumbit, insufficient Available Balance", ['error'=>$e]);
                     return false;
                 }
+                if (strpos($e, 'Invalid API Key') !== false) {
+                    $this->log->error("Failed to sumbit, Invalid API Key", ['error'=>$e]);
+                    return false;
+                }
                 $this->log->error("Failed to create/close position retrying in 3 seconds", ['error'=>$e]);
                 sleep(3);
                 continue;
