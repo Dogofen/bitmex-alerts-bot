@@ -157,7 +157,7 @@ class Trader {
             );
 
         $this->true_create_order($this->type, $this->amount);
-        $this->log->info("Target is at price", ['Target'=>$target]);
+        $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
         $profitPair = array_pop($fibArray);
         $intervalFlag = true;
@@ -167,7 +167,7 @@ class Trader {
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
 
             if ($openProfit < $this->stopLossInterval) {
-                $this->log->info("Position reached it's close price, thus Closing.", ['Stop Loss'=>$lastPrice]);
+                $this->log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
                 $this->log->info("Trade has closed successfully", ['info'=>$close]);
                 break;
@@ -175,7 +175,7 @@ class Trader {
             elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
                 $intervalFlag = false;
                 $this->stopLossInterval = $this->stopLossInterval / 10;
-                $this->log->info("Stop Loss has now changed to: ".$this->stopLossInterval, ['Profits'=>$openProfit]);
+                $this->log->info("Stop Loss has now changed to: ".($openPrice+$this->stopLossInterval), ['Profits'=>$openProfit]);
             }
             if ($openProfit > $profitPair[0]) {
                 $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
