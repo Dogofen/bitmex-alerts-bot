@@ -116,7 +116,7 @@ class Trader {
 
         }
         elseif (!file_exists($nextPidFileName) and !file_exists($currentPidFileName)) {
-            if ($this->true_create_order($this->type, $this->amount) != false) {
+            if ($this->true_create_order($this->type, $this->amount) !== false) {
                 shell_exec('touch '.$nextPidFileName);
                 if (preg_match('/over/',shell_exec('ls'))) {
                     shell_exec('rm *'.$pid.'_over');
@@ -156,7 +156,9 @@ class Trader {
             array(abs(0.618 * $tradeInterval), $percentage2 * $this->amount),
             );
 
-        $this->true_create_order($this->type, $this->amount);
+        if ($this->true_create_order($this->type, $this->amount) == false) {
+            $log->error("with_id Trade failed to create order", ['type'=>$this->type]);
+        }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
         $profitPair = array_pop($fibArray);
@@ -169,13 +171,14 @@ class Trader {
             if ($openProfit < $this->stopLossInterval) {
                 $this->log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
-                $this->log->info("Trade has closed successfully", ['info'=>$close]);
+                $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
                 break;
             }
             elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
                 $intervalFlag = false;
-                $this->stopLossInterval = $this->stopLossInterval / 10;
-                $this->log->info("Stop Loss has now changed to: ".($openPrice+$this->stopLossInterval), ['Profits'=>$openProfit]);
+                $this->stopLossInterval = -$this->stopLossInterval / 10;
+                $stopPrice = $this->is_buy() ? $openPrice+$this->stopLossInterval: $openPrice - $this->stopLossInterval;
+                $this->log->info("Stop Loss has now changed to: ".($stopPrice), ['Profits'=>$openProfit]);
             }
             if ($openProfit > $profitPair[0]) {
                 $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
