@@ -54,8 +54,6 @@ class Trader {
             $this->log->warning("Trade command does not fit the enviroment exiting.", ['command'=>$argv]);
             throw new Exception("Wrong enviroment.");
         }
-
-        $this->log->info("Trader Class initiated successfuly", ['enviroment'=>$this->env]);
     }
 
     public function is_buy() {
@@ -105,8 +103,11 @@ class Trader {
             return;
         }
         if (file_exists($currentPidFileName) and !file_exists($nextPidFileName)) {
-            if ($this->true_create_order($this->type, 2*$this->amount) != false) {
+            if ($this->true_create_order($this->type, 2*$this->amount) !== false) {
                 shell_exec('rm '.$currentPidFileName);
+                if (preg_match('/over/',shell_exec('ls'))) {
+                    shell_exec('rm *'.$pid.'_over');
+                }
                 shell_exec('touch '.$nextPidFileName);
                 return;
             }
@@ -117,6 +118,9 @@ class Trader {
         elseif (!file_exists($nextPidFileName) and !file_exists($currentPidFileName)) {
             if ($this->true_create_order($this->type, $this->amount) != false) {
                 shell_exec('touch '.$nextPidFileName);
+                if (preg_match('/over/',shell_exec('ls'))) {
+                    shell_exec('rm *'.$pid.'_over');
+                }
                 return;
             }
             $this->log->error("Reverse position has Failed to create order", ['pid'=>$this->pid]);
@@ -130,7 +134,6 @@ class Trader {
 
     public function with_id_trade() {
         $pidFileName = $this->type.'_with_id_'.$this->pid;
-        $pidLastFileName = $this->get_opposite_trade_type().'_with_id_'.$this->pid;
         $positionFileName = 'reverse_'.$this->type.'_'.$this->pid;
 
         if (file_exists($pidFileName) or file_exists($pidFileName.'_over')) {
@@ -138,9 +141,6 @@ class Trader {
         }
         if (!file_exists($positionFileName)) {
             return;
-        }
-        if (file_exists($pidLastFileName.'_over')) {
-            shell_exec('rm '.$pidLastFileName.'_over');
         }
         shell_exec('touch '.$pidFileName);
         $percentage1 = 0.4;
@@ -188,12 +188,7 @@ class Trader {
             sleep(1);
         } while ($this->amount > 0);
         shell_exec('rm '.$pidFileName);
-        if (file_exists($positionFileName)) {
-            shell_exec('touch '.$pidFileName.'_over');
-            if (file_exists($pidLastFileName.'_over')) {
-                shell_exec('rm '.$pidLastFileName.'_over');
-            }
-        }
+        shell_exec('touch '.$pidFileName.'_over');
     }
 }
 ?>
