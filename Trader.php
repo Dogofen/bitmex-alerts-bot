@@ -90,7 +90,8 @@ class Trader {
                 sleep(3);
                 continue;
             }
-            $this->log->info("Position has been created on Bitmex", ['OrderId'=>$order['orderID']]);
+            $this->log->info("Position has been created on Bitmex.", ['Strategy'=>$this->strategy.' '.$this->type]);
+            $this->log->info("Position successful, OrderId:".$order['orderID'], ['price'=>$order['price']]);
             break;
         } while (1);
         return true;
