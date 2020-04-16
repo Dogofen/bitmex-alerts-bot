@@ -10,7 +10,13 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
 }
 
 if (isset($argv[6]) and $argv[6] == "with_id") {
+    sleep(2);
     $trader->with_id_trade();
+    exit();
+}
+
+if (isset($argv[6]) and $argv[6] == "trend_line") {
+    $trader->trend_line_alert();
     exit();
 }
 

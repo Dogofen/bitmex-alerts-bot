@@ -26,7 +26,6 @@ class Trader {
 
     public function __construct($argv) {
         $config = include('config.php');
-        $this->log = create_logger(getcwd().'/Trades.log');
         $this->bitmex = new BitMex($config['key'], $config['secret'], $config['testnet']);
         $this->symbol = $this->tradeSymbols[intval($argv[1])];
         $this->bitmex->setLeverage($config['leverage'], $this->symbol);
@@ -39,6 +38,7 @@ class Trader {
         if (isset($argv[6])) {
             $this->strategy = $argv[6];
         }
+        $this->log = create_logger(getcwd().'/Trades_'.$this->strategy.'.log');
 
         if (isset($argv[7])) {
             $this->pid = $argv[7];
@@ -51,7 +51,7 @@ class Trader {
             $this->env = 'prod';
         }
         if (!(strpos($argv[8], $this->env) !== false)) {
-            $this->log->warning("Trade command does not fit the enviroment exiting.", ['command'=>$argv]);
+            $this->log->warning("Trade command does not fit the enviroment, exiting.", ['command'=>$argv]);
             throw new Exception("Wrong enviroment.");
         }
     }
@@ -193,6 +193,56 @@ class Trader {
         } while ($this->amount > 0);
         shell_exec('rm '.$pidFileName);
         shell_exec('touch '.$pidFileName.'_over');
+    }
+
+    public function trend_line_alert() {
+        $percentage1 = 0.4;
+        $percentage2 = 0.2;
+
+        $result = False;
+        $openPrice = $this->get_ticker()['last'];
+        $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
+        $target = $openPrice + $tradeInterval;
+        $fibArray = array(
+            array(abs($tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.786 * $tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.618 * $tradeInterval), $percentage2 * $this->amount),
+            );
+
+        if ($this->true_create_order($this->type, $this->amount) == false) {
+            $log->error("with_id Trade failed to create order", ['type'=>$this->type]);
+        }
+        $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
+        $this->log->info("Interval is", ['Interval'=>$fibArray]);
+        $profitPair = array_pop($fibArray);
+        $intervalFlag = true;
+
+        do {
+            $lastPrice = $this->get_ticker()['last'];
+            $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
+
+            if ($openProfit < $this->stopLossInterval) {
+                $this->log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$lastPrice]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
+                $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
+                break;
+            }
+            elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
+                $intervalFlag = false;
+                $this->stopLossInterval = -$this->stopLossInterval / 10;
+                $stopPrice = $this->is_buy() ? $openPrice+$this->stopLossInterval: $openPrice - $this->stopLossInterval;
+                $this->log->info("Stop Loss has now changed to: ".($stopPrice), ['Profits'=>$openProfit]);
+            }
+            if ($openProfit > $profitPair[0]) {
+                $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $profitPair[1]);
+                $this->amount = $this->amount - $profitPair[1];
+                if (sizeof($fibArray) > 0) {
+                    $profitPair = array_pop($fibArray);
+                }
+            }
+            sleep(1);
+        } while ($this->amount > 0);
     }
 }
 ?>
