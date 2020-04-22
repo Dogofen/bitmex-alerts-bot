@@ -144,7 +144,7 @@ class Trader {
             return;
         }
         shell_exec('touch '.$pidFileName);
-        $percentage1 = 0.4;
+        $percentage1 = 0.3;
         $percentage2 = 0.2;
 
         $result = False;
@@ -152,9 +152,10 @@ class Trader {
         $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
-            array(abs($tradeInterval), $percentage1 * $this->amount),
-            array(abs(0.786 * $tradeInterval), $percentage1 * $this->amount),
-            array(abs(0.618 * $tradeInterval), $percentage2 * $this->amount),
+            array(abs($tradeInterval), $percentage2 * $this->amount),
+            array(abs(0.786 * $tradeInterval), $percentage2 * $this->amount),
+            array(abs(0.618 * $tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.500 * $tradeInterval), $percentage1 * $this->amount),
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
@@ -170,7 +171,7 @@ class Trader {
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
 
             if ($openProfit < $this->stopLossInterval) {
-                $this->log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$lastPrice]);
+                $this->log->info("Position reached Stop Loss level, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
                 $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
                 break;
@@ -196,7 +197,7 @@ class Trader {
     }
 
     public function trend_line_alert() {
-        $percentage1 = 0.4;
+        $percentage1 = 0.3;
         $percentage2 = 0.2;
 
         $result = False;
@@ -204,9 +205,10 @@ class Trader {
         $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
-            array(abs($tradeInterval), $percentage1 * $this->amount),
-            array(abs(0.786 * $tradeInterval), $percentage1 * $this->amount),
-            array(abs(0.618 * $tradeInterval), $percentage2 * $this->amount),
+            array(abs($tradeInterval), $percentage2 * $this->amount),
+            array(abs(0.786 * $tradeInterval), $percentage2 * $this->amount),
+            array(abs(0.618 * $tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.500 * $tradeInterval), $percentage1 * $this->amount),
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
@@ -222,7 +224,7 @@ class Trader {
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
 
             if ($openProfit < $this->stopLossInterval) {
-                $this->log->info("Position reached it's close price, thus Closing.", ['Close Price'=>$lastPrice]);
+                $this->log->info("Position reached Stop loss level, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
                 $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
                 break;
