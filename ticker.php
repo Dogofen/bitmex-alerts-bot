@@ -15,7 +15,8 @@ while(1) {
     try {
         $result = $bitmex->getTicker('XBTUSD');
     } catch (Exception $e) {
-        $log->error("Failed retrieving ticker", ['error'=>$e]);
+        $log->error("Failed retrieving ticker, sleeping for 360 seconds", ['error'=>$e]);
+        sleep(360);
         continue;
     }
     if (!$result) {

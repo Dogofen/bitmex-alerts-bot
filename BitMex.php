@@ -57,7 +57,7 @@ class BitMex {
 
     if(!$return || count($return) != 1 || !isset($return[0]['symbol'])) return false;
 
-    $return = array(
+    $ticker = array(
       "symbol" => $return[0]['symbol'],
       "mark"   => $return[0]['markPrice'],
       "last"   => $return[0]['lastPrice'],
@@ -69,11 +69,16 @@ class BitMex {
     if ($return==false) {
         throw new Exception("Failed to get a ticker.");
     }
-    elseif (is_array($return) and in_array($symbol, $return)) {
-        return $return;
+    elseif (is_array($ticker) and in_array($symbol, $ticker)) {
+        foreach($ticker as $element) {
+            if (is_null($element)) {
+                throw new Exception("Failed to get a ticker, corrupted elemets: ".$ticker);
+            }
+        }
+        return $ticker;
     }
     else {
-        throw new Exception("Failed to get a ticker, probaly network with bitmex server.");
+        throw new Exception("Failed to get a ticker, probably network with bitmex server.");
     }
   }
 
