@@ -65,7 +65,14 @@ class Trader {
     }
 
     public function get_ticker() {
-        return unserialize(file_get_contents(self::TICKER_PATH));
+        do {
+            $ticker = unserialize(file_get_contents(self::TICKER_PATH));
+            if ($ticker['last'] == null) {
+                $this->log->error("ticker is error, retrying in 3 seconds", ['ticker'=>$ticker]);
+                sleep(3);
+            }
+        } while ($ticker['last'] == null);
+        return $ticker;
     }
 
     public function true_create_order($type, $amount) {
@@ -134,13 +141,9 @@ class Trader {
     }
 
     public function with_id_trade() {
-        $pidFileName = $this->type.'_with_id_'.$this->pid;
-        $positionFileName = 'reverse_'.$this->type.'_'.$this->pid;
+        $pidFileName = 'with_id_'.$this->pid;
 
-        if (file_exists($pidFileName) or file_exists($pidFileName.'_over')) {
-            return;
-        }
-        if (!file_exists($positionFileName)) {
+        if (file_exists($pidFileName)) {
             return;
         }
         shell_exec('touch '.$pidFileName);
@@ -193,7 +196,6 @@ class Trader {
             sleep(1);
         } while ($this->amount > 0);
         shell_exec('rm '.$pidFileName);
-        shell_exec('touch '.$pidFileName.'_over');
     }
 
     public function trend_line_alert() {

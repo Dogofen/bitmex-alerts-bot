@@ -21,7 +21,7 @@ function verify_trade_exists($argv) {
     }
     if (isset($argv[5]) and $argv[5] == "with_id") {
         $pid = $argv[6];
-        $currentFileName = $type.'_with_id_'.$pid;
+        $currentFileName = 'with_id_'.$pid;
         if (file_exists($currentFileName)) {
             return false;
         }
@@ -65,6 +65,9 @@ while(1) {
                 $res = $gmailClient->isMessageAlert($msg);
                 $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
                 $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
+            }
+            else {
+                $log->info('Command was not sent. '.$command, ['msgId'=>$msgId]);
             }
             $gmailClient->populateMessageId($msgId);
         }
