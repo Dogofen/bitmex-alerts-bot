@@ -67,7 +67,7 @@ while(1) {
                 $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
             }
             else {
-                $log->info('Command was not sent. '.$command, ['msgId'=>$msgId]);
+                $log->info('Command was not sent. '.$params, ['msgId'=>$msgId]);
             }
             $gmailClient->populateMessageId($msgId);
         }
