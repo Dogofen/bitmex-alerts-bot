@@ -9,9 +9,8 @@ if (isset($argv[6]) and $argv[6] == "reverse_pos") {
     exit();
 }
 
-if (isset($argv[6]) and $argv[6] == "with_id") {
-    sleep(2);
-    $trader->with_id_trade();
+if (isset($argv[6]) and $argv[6] == "ichimoku_macd") {
+    $trader->ichimoku_macd();
     exit();
 }
 

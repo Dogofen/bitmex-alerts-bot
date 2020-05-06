@@ -8,6 +8,8 @@ require_once("log.php");
 class Trader {
 
     const TICKER_PATH = '.ticker.txt';
+    const DATA_PATH = '.data.json';
+
     private $log;
     private $bitmex;
 
@@ -15,6 +17,7 @@ class Trader {
     private $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
     private $tradeTypes = array('Buy', 'Sell');
     private $pid;
+    private $data;
 
     private $symbol;
     private $stopLossInterval;
@@ -27,6 +30,16 @@ class Trader {
     public function __construct($argv) {
         $config = include('config.php');
         $this->bitmex = new BitMex($config['key'], $config['secret'], $config['testnet']);
+        if (file_exists(SELF::DATA_PATH)){
+            $objData = file_get_contents(SELF::DATA_PATH);
+            $this->data = unserialize($objData);
+        }
+        else {
+            $this->data = array(
+                "ichimokuMacDTradeClose" => 0
+            );
+        }
+
         $this->symbol = $this->tradeSymbols[intval($argv[1])];
         $this->bitmex->setLeverage($config['leverage'], $this->symbol);
 
@@ -56,6 +69,12 @@ class Trader {
         }
     }
 
+    public function __destruct() {
+        $objData = serialize($this->data);
+        file_put_contents(SELF::DATA_PATH, $objData);
+    }
+
+
     public function is_buy() {
         return $this->type == 'Buy' ? 1:0;
     }
@@ -73,6 +92,18 @@ class Trader {
             }
         } while ($ticker['last'] == null);
         return $ticker;
+    }
+
+    public function get_open_order_type(){
+        if (preg_match('/'.$this->get_opposite_trade_type().'/',shell_exec('ps -ax|grep '.$this->strategy))) {
+            return $this->get_opposite_trade_type();
+        }
+        if (preg_match_all('/'.$this->type.'/',shell_exec('ps -ax|grep '.$this->strategy)) == 2) {
+            return $this->type;
+        }
+        else {
+            return False;
+        }
     }
 
     public function true_create_order($type, $amount) {
@@ -113,9 +144,6 @@ class Trader {
         if (file_exists($currentPidFileName) and !file_exists($nextPidFileName)) {
             if ($this->true_create_order($this->type, 2*$this->amount) !== false) {
                 shell_exec('rm '.$currentPidFileName);
-                if (preg_match('/over/',shell_exec('ls'))) {
-                    shell_exec('rm *'.$pid.'_over');
-                }
                 shell_exec('touch '.$nextPidFileName);
                 return;
             }
@@ -140,10 +168,31 @@ class Trader {
         }
     }
 
-    public function with_id_trade() {
-        $pidFileName = 'with_id_'.$this->pid;
+    public function ichimoku_macd() {
+        $pidFileName = $this->strategy.'_'.$this->pid;
 
         if (file_exists($pidFileName)) {
+            $ichimokuMacDTradeClose = $this->data['ichimokuMacDTradeClose'];
+            $openTradeType = $this->get_open_order_type();
+            if (!$openTradeType) {
+                $this->log->error("Trade Process was not found", ["trade"=>$this->strategy]);
+                throw new Exception("Trade Process was not found");
+            }
+
+            if ($openTradeType == $this->type) {
+                $this->data['ichimokuMacDTradeClose'] = 0;
+                return;
+            }
+
+            $ichimokuMacDTradeClose = $ichimokuMacDTradeClose + 1;
+            if ($ichimokuMacDTradeClose >= 3) {
+                $this->log->info("Sending Ichimoku MacD Trade a close signal.", ["counter"=>$ichimokuMacDTradeClose]);
+                shell_exec("touch close_".$this->strategy);
+            }
+            else {
+                $this->data['ichimokuMacDTradeClose'] = $ichimokuMacDTradeClose;
+                $this->log->info("Ichimoku MacD counter was updated.", ["counter"=>$this->data['ichimokuMacDTradeClose']]);
+            }
             return;
         }
         shell_exec('touch '.$pidFileName);
@@ -173,6 +222,11 @@ class Trader {
             $lastPrice = $this->get_ticker()['last'];
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
 
+            if (file_exists("close_".$this->strategy)) {
+                $this->log->info("Trade Process got an outside close signal", ["openProfit"=>$openProfit]);
+                $openProfit = $this->stopLossInterval - 1;
+                shell_exec('rm close_'.$this->strategy);
+            }
             if ($openProfit < $this->stopLossInterval) {
                 $this->log->info("Position reached Stop Loss level, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
