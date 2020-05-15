@@ -220,7 +220,6 @@ class BitMex {
     $data['method'] = "GET";
     $data['function'] = "position";
     $data['params'] = array(
-      "symbol" => "XBTUSD"
     );
     $positions = $this->authQuery($data);
 

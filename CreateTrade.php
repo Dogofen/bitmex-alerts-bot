@@ -19,4 +19,9 @@ if (isset($argv[6]) and $argv[6] == "trend_line") {
     exit();
 }
 
+if (isset($argv[6]) and $argv[6] == "anti_liq") {
+    $trader->anti_liquidation();
+    exit();
+}
+
 ?>

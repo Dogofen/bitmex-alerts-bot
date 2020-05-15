@@ -7,17 +7,18 @@ require_once("log.php");
 
 class Trader {
 
-    const TICKER_PATH = '.ticker.txt';
+    const TICKER_PATH = '.ticker';
     const DATA_PATH = '.data.json';
 
     private $log;
     private $bitmex;
 
     private $env;
-    private $tradeSymbols = array('XBTUSD', 'ETHUSD','XBT7D_U105', 'ADAZ19', 'BCHZ19', 'EOSZ19', 'LTCZ19', 'TRXZ19', 'XRPZ19');
+    private $tradeSymbols = array('XBTUSD', 'ETHUSD','XRPUSD');
     private $tradeTypes = array('Buy', 'Sell');
     private $pid;
     private $data;
+    private $ichimokuMacDTradeCloseIndicator;
 
     private $symbol;
     private $stopLossInterval;
@@ -30,13 +31,16 @@ class Trader {
     public function __construct($argv) {
         $config = include('config.php');
         $this->bitmex = new BitMex($config['key'], $config['secret'], $config['testnet']);
+        $this->ichimokuMacDTradeIndicator = $config['ichimokuMacDTradeIndicator'];
+        $this->signalsTimeCondition =  $config['signalsTimeCondition'];
         if (file_exists(SELF::DATA_PATH)){
             $objData = file_get_contents(SELF::DATA_PATH);
             $this->data = unserialize($objData);
         }
         else {
             $this->data = array(
-                "ichimokuMacDTradeClose" => 0
+                "ichimokuMacDBuyIndicators"  => array(),
+                "ichimokuMacDSellIndicators" => array()
             );
         }
 
@@ -44,7 +48,7 @@ class Trader {
         $this->bitmex->setLeverage($config['leverage'], $this->symbol);
 
         $this->stopLossInterval = -$argv[2];
-        $this->targetPercent = floatval($argv[3]) / 100;
+        $this->target = floatval($argv[3]) / 100;
         $this->type = $argv[4];
         $this->amount = $argv[5];
 
@@ -85,7 +89,7 @@ class Trader {
 
     public function get_ticker() {
         do {
-            $ticker = unserialize(file_get_contents(self::TICKER_PATH));
+            $ticker = unserialize(file_get_contents(self::TICKER_PATH.$this->symbol.'.txt'));
             if ($ticker['last'] == null) {
                 $this->log->error("ticker is error, retrying in 3 seconds", ['ticker'=>$ticker]);
                 sleep(3);
@@ -104,6 +108,23 @@ class Trader {
         else {
             return False;
         }
+    }
+
+    public function get_liquidation_price() {
+        do {
+            $positions = $this->bitmex->getOpenPositions();
+            if (!is_array($positions)) {
+                sleep(2);
+                continue;
+            }
+            foreach($positions as $position) {
+                if ($position["symbol"] == $this->symbol) {
+                    return $position["liquidationPrice"];
+                }
+            }
+            $this->log->error("Failed to get position's liquidation price, retrying in 2 seconds.", ['error'=>$positions]);
+            sleep(2);
+        } while (1);
     }
 
     public function true_create_order($type, $amount) {
@@ -172,36 +193,46 @@ class Trader {
         $pidFileName = $this->strategy.'_'.$this->pid;
 
         if (file_exists($pidFileName)) {
-            $ichimokuMacDTradeClose = $this->data['ichimokuMacDTradeClose'];
-            $openTradeType = $this->get_open_order_type();
-            if (!$openTradeType) {
-                $this->log->error("Trade Process was not found", ["trade"=>$this->strategy]);
-                throw new Exception("Trade Process was not found");
+            return False;
+        }
+
+        $ichimokuMacDSignalArray = is_buy ? $this->data['ichimokuMacDBuyIndicators']:$this->data['ichimokuMacDSellIndicators'];
+        foreach ($ichimokuMacDSignalArray as $signal) {
+            if (microtime(true) - $signal > $this->signalsTimeCondition) {
+                unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
             }
 
-            if ($openTradeType == $this->type) {
-                $this->data['ichimokuMacDTradeClose'] = 0;
-                return;
-            }
+        }
+        $ichimokuMacDTradeClose = $this->data['ichimokuMacDTradeClose'];
+        $openTradeType = $this->get_open_order_type();
+        if (!$openTradeType) {
+            $this->log->error("Trade Process was not found", ["trade"=>$this->strategy]);
+            throw new Exception("Trade Process was not found");
+        }
 
-            $ichimokuMacDTradeClose = $ichimokuMacDTradeClose + 1;
-            if ($ichimokuMacDTradeClose >= 3) {
-                $this->log->info("Sending Ichimoku MacD Trade a close signal.", ["counter"=>$ichimokuMacDTradeClose]);
-                shell_exec("touch close_".$this->strategy);
-            }
-            else {
-                $this->data['ichimokuMacDTradeClose'] = $ichimokuMacDTradeClose;
-                $this->log->info("Ichimoku MacD counter was updated.", ["counter"=>$this->data['ichimokuMacDTradeClose']]);
-            }
+        if ($openTradeType == $this->type) {
+            $this->data['ichimokuMacDTradeClose'] = 0;
             return;
         }
+
+        $ichimokuMacDTradeClose = $ichimokuMacDTradeClose + 1;
+        if ($ichimokuMacDTradeClose >= $this->ichimokuMacDTradeCloseIndicator) {
+            $this->log->info("Sending Ichimoku MacD Trade a close signal.", ["counter"=>$ichimokuMacDTradeClose]);
+            shell_exec("touch close_".$this->strategy);
+        }
+        else {
+            $this->data['ichimokuMacDTradeClose'] = $ichimokuMacDTradeClose;
+            $this->log->info("Ichimoku MacD counter was updated.", ["counter"=>$this->data['ichimokuMacDTradeClose']]);
+        }
+        return;
+
         shell_exec('touch '.$pidFileName);
         $percentage1 = 0.3;
         $percentage2 = 0.2;
 
         $result = False;
         $openPrice = $this->get_ticker()['last'];
-        $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
+        $tradeInterval =  $this->is_buy() ? $openPrice * $this->target : - $openPrice * $this->target;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
             array(abs($tradeInterval), $percentage2 * $this->amount),
@@ -211,7 +242,7 @@ class Trader {
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $log->error("with_id Trade failed to create order", ['type'=>$this->type]);
+            $log->error("ichimoku macd Trade failed to create order", ['type'=>$this->type]);
         }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
@@ -258,7 +289,7 @@ class Trader {
 
         $result = False;
         $openPrice = $this->get_ticker()['last'];
-        $tradeInterval =  $this->is_buy() ? $openPrice * $this->targetPercent : - $openPrice * $this->targetPercent;
+        $tradeInterval =  $this->is_buy() ? $openPrice * $this->target : - $openPrice * $this->target;
         $target = $openPrice + $tradeInterval;
         $fibArray = array(
             array(abs($tradeInterval), $percentage2 * $this->amount),
@@ -268,7 +299,7 @@ class Trader {
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $log->error("with_id Trade failed to create order", ['type'=>$this->type]);
+            $log->error("trend_line Trade failed to create order", ['type'=>$this->type]);
         }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
@@ -302,5 +333,35 @@ class Trader {
             sleep(1);
         } while ($this->amount > 0);
     }
+
+    public function anti_liquidation() {
+        if ($this->true_create_order($this->type, $this->amount) == false) {
+            $log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
+            return False;
+        }
+        $liquidationPrice = $this->get_liquidation_price();
+        $this->log->info("Anti liquidation position is being created.", ['liquidationPrice'=>$liquidationPrice]);
+        $openPosition = True;
+        do {
+            if (file_exists("close_".$this->strategy)) {
+                $openPosition = False;
+            }
+            $lastPrice = $this->get_ticker()['last'];
+            $liquidationIndicator =  abs($lastPrice - $liquidationPrice);
+            if (($liquidationIndicator + $this->stopLossInterval) < 0) {
+                 $this->log->info("We have reached liquidation area and Creating a new ".$this->type." order.", ['liquidationIndicator'=>$liquidationIndicator]);
+                 if ($this->true_create_order($this->type, $this->amount) == false) {
+                     $log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
+                     return False;
+                 }
+                 $liquidationPrice = $this->get_liquidation_price();
+                 $this->log->info("New liquidation Price is.", ["liquidationPrice"=>$liquidationPrice]);
+            }
+            sleep(1);
+
+        } while ($openPosition);
+        shell_exec('rm close_'.$this->strategy);
+    }
+
 }
 ?>
