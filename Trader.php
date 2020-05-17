@@ -18,7 +18,7 @@ class Trader {
     private $tradeTypes = array('Buy', 'Sell');
     private $pid;
     private $data;
-    private $ichimokuMacDTradeCloseIndicator;
+    private $ichimokuMacDTradeIndicator;
 
     private $symbol;
     private $stopLossInterval;
@@ -191,41 +191,29 @@ class Trader {
 
     public function ichimoku_macd() {
         $pidFileName = $this->strategy.'_'.$this->pid;
+        $ichimokuMacDSignalArray;
 
         if (file_exists($pidFileName)) {
             return False;
         }
 
-        $ichimokuMacDSignalArray = is_buy ? $this->data['ichimokuMacDBuyIndicators']:$this->data['ichimokuMacDSellIndicators'];
+        if ($this->is_buy()) {
+            $ichimokuMacDSignalArray = &$this->data['ichimokuMacDBuyIndicators'];
+        } else { $ichimokuMacDSignalArray = &$this->data['ichimokuMacDSellIndicators'];}
+
+        array_push($ichimokuMacDSignalArray, microtime(true));
+
         foreach ($ichimokuMacDSignalArray as $signal) {
             if (microtime(true) - $signal > $this->signalsTimeCondition) {
                 unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
             }
-
-        }
-        $ichimokuMacDTradeClose = $this->data['ichimokuMacDTradeClose'];
-        $openTradeType = $this->get_open_order_type();
-        if (!$openTradeType) {
-            $this->log->error("Trade Process was not found", ["trade"=>$this->strategy]);
-            throw new Exception("Trade Process was not found");
         }
 
-        if ($openTradeType == $this->type) {
-            $this->data['ichimokuMacDTradeClose'] = 0;
-            return;
-        }
+        $this->log->info("ichimoku macd trade ".$this->type." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
 
-        $ichimokuMacDTradeClose = $ichimokuMacDTradeClose + 1;
-        if ($ichimokuMacDTradeClose >= $this->ichimokuMacDTradeCloseIndicator) {
-            $this->log->info("Sending Ichimoku MacD Trade a close signal.", ["counter"=>$ichimokuMacDTradeClose]);
-            shell_exec("touch close_".$this->strategy);
+        if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
+            return False;
         }
-        else {
-            $this->data['ichimokuMacDTradeClose'] = $ichimokuMacDTradeClose;
-            $this->log->info("Ichimoku MacD counter was updated.", ["counter"=>$this->data['ichimokuMacDTradeClose']]);
-        }
-        return;
-
         shell_exec('touch '.$pidFileName);
         $percentage1 = 0.3;
         $percentage2 = 0.2;

@@ -26,7 +26,7 @@ while(1) {
             continue;
         }
         file_put_contents($ticker.$symbol.'.txt',  serialize($result));
-        sleep(1);
+        sleep(2);
     }
 }
 ?>
