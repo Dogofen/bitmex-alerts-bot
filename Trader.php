@@ -193,10 +193,6 @@ class Trader {
         $pidFileName = $this->strategy.'_'.$this->pid;
         $ichimokuMacDSignalArray;
 
-        if (file_exists($pidFileName)) {
-            return False;
-        }
-
         if ($this->is_buy()) {
             $ichimokuMacDSignalArray = &$this->data['ichimokuMacDBuyIndicators'];
         } else { $ichimokuMacDSignalArray = &$this->data['ichimokuMacDSellIndicators'];}
@@ -210,6 +206,10 @@ class Trader {
         }
 
         $this->log->info("ichimoku macd trade ".$this->type." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
+
+        if (file_exists($pidFileName)) {
+            return False;
+        }
 
         if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
             return False;
