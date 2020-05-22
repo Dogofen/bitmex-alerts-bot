@@ -190,7 +190,6 @@ class Trader {
     }
 
     public function ichimoku_macd() {
-        $pidFileName = $this->strategy.'_'.$this->pid;
         $ichimokuMacDSignalArray;
 
         if ($this->is_buy()) {
@@ -207,14 +206,9 @@ class Trader {
 
         $this->log->info("ichimoku macd trade ".$this->type." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
 
-        if (file_exists($pidFileName)) {
-            return False;
-        }
-
         if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
             return False;
         }
-        shell_exec('touch '.$pidFileName);
         $percentage1 = 0.3;
         $percentage2 = 0.2;
 
@@ -230,7 +224,7 @@ class Trader {
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $log->error("ichimoku macd Trade failed to create order", ['type'=>$this->type]);
+            $this->log->error("ichimoku macd Trade failed to create order", ['type'=>$this->type]);
         }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
@@ -268,7 +262,6 @@ class Trader {
             }
             sleep(1);
         } while ($this->amount > 0);
-        shell_exec('rm '.$pidFileName);
     }
 
     public function trend_line_alert() {
@@ -287,7 +280,7 @@ class Trader {
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $log->error("trend_line Trade failed to create order", ['type'=>$this->type]);
+            $this->log->error("trend_line Trade failed to create order", ['type'=>$this->type]);
         }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
         $this->log->info("Interval is", ['Interval'=>$fibArray]);
@@ -324,7 +317,7 @@ class Trader {
 
     public function anti_liquidation() {
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
+            $this->log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
             return False;
         }
         $liquidationPrice = $this->get_liquidation_price();
@@ -339,7 +332,7 @@ class Trader {
             if (($liquidationIndicator + $this->stopLossInterval) < 0) {
                  $this->log->info("We have reached liquidation area and Creating a new ".$this->type." order.", ['liquidationIndicator'=>$liquidationIndicator]);
                  if ($this->true_create_order($this->type, $this->amount) == false) {
-                     $log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
+                     $this->log->error("Anti liquidation Trade failed to create order", ['type'=>$this->type]);
                      return False;
                  }
                  $liquidationPrice = $this->get_liquidation_price();
