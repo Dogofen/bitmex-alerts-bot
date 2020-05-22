@@ -201,6 +201,7 @@ class Trader {
         foreach ($ichimokuMacDSignalArray as $signal) {
             if (microtime(true) - $signal > $this->signalsTimeCondition) {
                 unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
+                $this->log->info("a signal was unset from array.", ["diff"=>microtime(true) - $signal]);
             }
         }
 
