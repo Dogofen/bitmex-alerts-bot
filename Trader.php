@@ -39,8 +39,18 @@ class Trader {
         }
         else {
             $this->data = array(
-                "ichimokuMacDBuyIndicators"  => array(),
-                "ichimokuMacDSellIndicators" => array()
+                'XBTUSD' => array(
+                    "ichimokuMacDBuyIndicators"  => array(),
+                    "ichimokuMacDSellIndicators" => array()
+                ),
+                'XRPUSD' => array(
+                    "ichimokuMacDBuyIndicators"  => array(),
+                    "ichimokuMacDSellIndicators" => array()
+                ),
+                'ETHUSD' => array(
+                    "ichimokuMacDBuyIndicators"  => array(),
+                    "ichimokuMacDSellIndicators" => array()
+                )
             );
         }
 
@@ -193,19 +203,19 @@ class Trader {
         $ichimokuMacDSignalArray;
 
         if ($this->is_buy()) {
-            $ichimokuMacDSignalArray = &$this->data['ichimokuMacDBuyIndicators'];
-        } else { $ichimokuMacDSignalArray = &$this->data['ichimokuMacDSellIndicators'];}
+            $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDBuyIndicators'];
+        } else { $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDSellIndicators'];}
 
         array_push($ichimokuMacDSignalArray, microtime(true));
 
         foreach ($ichimokuMacDSignalArray as $signal) {
             if (microtime(true) - $signal > $this->signalsTimeCondition) {
                 unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
-                $this->log->info("a signal was unset from array.", ["diff"=>microtime(true) - $signal]);
+                $this->log->info("a signal was unset from ".$this->symbol." array.", ["diff"=>microtime(true) - $signal]);
             }
         }
 
-        $this->log->info("ichimoku macd trade ".$this->type." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
+        $this->log->info("ichimoku macd trade ".$this->type." ".$this->symbol." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
 
         if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
             return False;
