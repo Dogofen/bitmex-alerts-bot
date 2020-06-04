@@ -6,7 +6,7 @@ pid=`echo $!`
 sleep 2
 while true
 do
-    if (( $((`date +%s` - `stat -c %Z messages_ids.json`)) > 400 )); then
+    if (( $((`date +%s` - `stat -c %Z bot_idle`)) > 25 )); then
         kill -9 $pid
         php $PWD/index.php &
         pid=`echo $!`
