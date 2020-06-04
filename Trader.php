@@ -199,27 +199,8 @@ class Trader {
         }
     }
 
-    public function ichimoku_macd() {
-        $ichimokuMacDSignalArray;
-
-        if ($this->is_buy()) {
-            $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDBuyIndicators'];
-        } else { $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDSellIndicators'];}
-
-        array_push($ichimokuMacDSignalArray, microtime(true));
-
-        foreach ($ichimokuMacDSignalArray as $signal) {
-            if (microtime(true) - $signal > $this->signalsTimeCondition) {
-                unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
-                $this->log->info("a signal was unset from ".$this->symbol." array.", ["diff"=>microtime(true) - $signal]);
-            }
-        }
-
-        $this->log->info("ichimoku macd trade ".$this->type." ".$this->symbol." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
-
-        if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
-            return False;
-        }
+    public function trade_open_and_manage() {
+        $this->log->info('---------------------------------- New Order ----------------------------------', ['Sepparator'=>'---']);
         $percentage1 = 0.3;
         $percentage2 = 0.2;
 
@@ -273,57 +254,35 @@ class Trader {
             }
             sleep(1);
         } while ($this->amount > 0);
+
+    }
+
+    public function ichimoku_macd() {
+        $ichimokuMacDSignalArray;
+
+        if ($this->is_buy()) {
+            $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDBuyIndicators'];
+        } else { $ichimokuMacDSignalArray = &$this->data[$this->symbol]['ichimokuMacDSellIndicators'];}
+
+        array_push($ichimokuMacDSignalArray, microtime(true));
+
+        foreach ($ichimokuMacDSignalArray as $signal) {
+            if (microtime(true) - $signal > $this->signalsTimeCondition) {
+                unset($ichimokuMacDSignalArray[array_search($signal, $ichimokuMacDSignalArray)]);
+                $this->log->info("a signal was unset from ".$this->symbol." array.", ["diff"=>microtime(true) - $signal]);
+            }
+        }
+
+        $this->log->info("ichimoku macd trade ".$this->type." ".$this->symbol." trade got a signal and inserted into array.", ["signals"=>sizeof($ichimokuMacDSignalArray)]);
+
+        if (sizeof($ichimokuMacDSignalArray) < $this->ichimokuMacDTradeIndicator) {
+            return False;
+        }
+        $this->trade_open_and_manage();
     }
 
     public function trend_line_alert() {
-        $percentage1 = 0.3;
-        $percentage2 = 0.2;
-
-        $result = False;
-        $openPrice = $this->get_ticker()['last'];
-        $tradeInterval =  $this->is_buy() ? $openPrice * $this->target : - $openPrice * $this->target;
-        $target = $openPrice + $tradeInterval;
-        $fibArray = array(
-            array(abs($tradeInterval), $percentage2 * $this->amount),
-            array(abs(0.786 * $tradeInterval), $percentage2 * $this->amount),
-            array(abs(0.618 * $tradeInterval), $percentage1 * $this->amount),
-            array(abs(0.500 * $tradeInterval), $percentage1 * $this->amount),
-            );
-
-        if ($this->true_create_order($this->type, $this->amount) == false) {
-            $this->log->error("trend_line Trade failed to create order", ['type'=>$this->type]);
-        }
-        $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
-        $this->log->info("Interval is", ['Interval'=>$fibArray]);
-        $profitPair = array_pop($fibArray);
-        $intervalFlag = true;
-
-        do {
-            $lastPrice = $this->get_ticker()['last'];
-            $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
-
-            if ($openProfit < $this->stopLossInterval) {
-                $this->log->info("Position reached Stop loss level, thus Closing.", ['Close Price'=>$lastPrice]);
-                $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
-                $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
-                break;
-            }
-            elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
-                $intervalFlag = false;
-                $this->stopLossInterval = -$this->stopLossInterval / 10;
-                $stopPrice = $this->is_buy() ? $openPrice+$this->stopLossInterval: $openPrice - $this->stopLossInterval;
-                $this->log->info("Stop Loss has now changed to: ".($stopPrice), ['Profits'=>$openProfit]);
-            }
-            if ($openProfit > $profitPair[0]) {
-                $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
-                $this->true_create_order($this->get_opposite_trade_type($type), $profitPair[1]);
-                $this->amount = $this->amount - $profitPair[1];
-                if (sizeof($fibArray) > 0) {
-                    $profitPair = array_pop($fibArray);
-                }
-            }
-            sleep(1);
-        } while ($this->amount > 0);
+        $this->trade_open_and_manage();
     }
 
     public function anti_liquidation() {

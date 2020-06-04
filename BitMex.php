@@ -64,7 +64,8 @@ class BitMex {
       "bid"    => $return[0]['bidPrice'],
       "ask"    => $return[0]['askPrice'],
       "high"   => $return[0]['highPrice'],
-      "low"    => $return[0]['lowPrice']
+      "low"    => $return[0]['lowPrice'],
+      "volume" => $return[0]['volume']
     );
     if ($return==false) {
         throw new Exception("Failed to get a ticker.");

@@ -56,19 +56,15 @@ while(1) {
         foreach($newMessagesIds as $msgId) {
             try {
                 $msg = $gmailClient->getMessage($msgId);
-                $params = $gmailClient->getAlertSubject($msg);
+                $params = preg_replace('/.*:/', "", $gmailClient->getAlertSubject($msg));
             } catch (Exception $e) {
                 $log->error('An error occurred at getMessage or getAlertSubject: ', ['error'=>$e->getMessage()]);
             }
-            if (verify_trade_exists(explode(' ', $params))) {
-                $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
-                $res = $gmailClient->isMessageAlert($msg);
-                $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
-                $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
-            }
-            else {
-                $log->info('Command was not sent. '.$params, ['msgId'=>$msgId]);
-            }
+            $command = 'php CreateTrade.php '.$params.' > /dev/null 2>&1 &';
+            $res = $gmailClient->isMessageAlert($msg);
+            $res == True ? shell_exec('php CreateTrade.php '.$params.' > /dev/null 2>&1 &') : "Not alert message\n";
+            $log->info('Command was sent to Trader '.$command, ['msg id'=>$msgId]);
+            $log->info('Command was not sent. '.$params, ['msgId'=>$msgId]);
             $gmailClient->populateMessageId($msgId);
         }
     }
