@@ -4,8 +4,8 @@ require_once("Trader.php");
 
 $trader = new Trader($argv);
 
-if (isset($argv[6]) and $argv[6] == "reverse_pos") {
-    $trader->reverse_pos();
+if (isset($argv[6]) and $argv[6] == "range_trade") {
+    $trader->range_trade();
     exit();
 }
 

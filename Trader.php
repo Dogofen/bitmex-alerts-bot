@@ -54,18 +54,22 @@ class Trader {
             );
         }
 
+        if (isset($argv[6])) {
+            $this->strategy = $argv[6];
+        }
+        $this->log = create_logger(getcwd().'/Trades_'.$this->strategy.'.log');
         $this->symbol = $this->tradeSymbols[intval($argv[1])];
-        $this->bitmex->setLeverage($config['leverage'], $this->symbol);
+        try {
+            $this->bitmex->setLeverage($config['leverage'], $this->symbol);
+        } catch (Exception $e) {
+            $this->log->error("Network failure to set leverage.", ["continue"=>True]);
+        }
 
         $this->stopLossInterval = -$argv[2];
         $this->target = floatval($argv[3]) / 100;
         $this->type = $argv[4];
         $this->amount = $argv[5];
 
-        if (isset($argv[6])) {
-            $this->strategy = $argv[6];
-        }
-        $this->log = create_logger(getcwd().'/Trades_'.$this->strategy.'.log');
 
         if (isset($argv[7])) {
             $this->pid = $argv[7];
@@ -166,37 +170,54 @@ class Trader {
         return true;
     }
 
-    public function reverse_pos() {
-        $nextPidFileName = 'reverse_'.$this->type.'_'.$this->pid;
-        $currentPidFileName = 'reverse_'.$this->get_opposite_trade_type().'_'.$this->pid;
-        if (file_exists($nextPidFileName)) {
-            return;
-        }
-        if (file_exists($currentPidFileName) and !file_exists($nextPidFileName)) {
-            if ($this->true_create_order($this->type, 2*$this->amount) !== false) {
-                shell_exec('rm '.$currentPidFileName);
-                shell_exec('touch '.$nextPidFileName);
-                return;
-            }
-            $this->log->error("Reverse position has Failed to create order", ['pid'=>$this->pid]);
-            return;
+    public function range_trade() {
+        $rangeTrade = $this->strategy.'_'.$this->type.'_'.$this->pid;
+        $oppositeRangeTrade = $this->strategy.'_'.$this->get_opposite_trade_type().'_'.$this->pid;
 
+        if (file_exists($rangeTrade)) {
+            exit();
         }
-        elseif (!file_exists($nextPidFileName) and !file_exists($currentPidFileName)) {
-            if ($this->true_create_order($this->type, $this->amount) !== false) {
-                shell_exec('touch '.$nextPidFileName);
-                if (preg_match('/over/',shell_exec('ls'))) {
-                    shell_exec('rm *'.$pid.'_over');
-                }
-                return;
+        shell_exec('touch '.$rangeTrade);
+        sleep(5);
+        $this->log->info('---------------------------------- New Order ----------------------------------', ['Sepparator'=>'---']);
+        $percentage = 0.4;
+
+        $tradeArray = array();
+        $result = False;
+        $openPrice = $this->get_ticker()['last'];
+        $tradeInterval =  $this->is_buy() ? $openPrice * $this->target : - $openPrice * $this->target;
+        $target = $openPrice + $tradeInterval;
+        $takeProfit = array(abs($tradeInterval), $percentage * $this->amount);
+
+        if ($this->true_create_order($this->type, $this->amount) == false) {
+            $this->log->error("Failed to create order", ['type'=>$this->type]);
+        }
+        $this->log->info("range trade opened profit will be taken at price: ".$target, ['Open Price'=>$openPrice]);
+
+        do {
+            $lastPrice = $this->get_ticker()['last'];
+            $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
+
+            if (file_exists($oppositeRangeTrade)) {
+                $this->log->info("range arrived to target", ["openProfit"=>$openProfit]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
+                shell_exec('rm '.$rangeTrade);
             }
-            $this->log->error("Reverse position has Failed to create order", ['pid'=>$this->pid]);
-            return;
-        }
-        else {
-            $this->log->error("Reverse position has Failed to operate due to Pid Files mismatch");
-            return;
-        }
+            if ($openProfit < $this->stopLossInterval) {
+                $this->log->info("Position reached Stop Loss level, thus Closing.", ['Close Price'=>$lastPrice]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
+                $this->log->info("Range was terminated successfully", ['closePrice'=>$lastPrice]);
+                shell_exec('touch '.$oppositeRangeTrade);
+                break;
+            }
+            if ($openProfit > $takeProfit[0]) {
+                $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
+                $this->true_create_order($this->get_opposite_trade_type($type), $takeProfit[1]);
+                $this->amount = $this->amount - $takeProfit[1];
+                $takeProfit[0] = 99999;
+            }
+            sleep(1);
+        } while (file_exists($rangeTrade));
     }
 
     public function trade_open_and_manage() {
@@ -204,57 +225,63 @@ class Trader {
         $percentage1 = 0.3;
         $percentage2 = 0.2;
 
+        $tradeArray = array();
         $result = False;
         $openPrice = $this->get_ticker()['last'];
         $tradeInterval =  $this->is_buy() ? $openPrice * $this->target : - $openPrice * $this->target;
         $target = $openPrice + $tradeInterval;
-        $fibArray = array(
-            array(abs($tradeInterval), $percentage2 * $this->amount),
-            array(abs(0.786 * $tradeInterval), $percentage2 * $this->amount),
-            array(abs(0.618 * $tradeInterval), $percentage1 * $this->amount),
+        $takeProfit = array(
             array(abs(0.500 * $tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.618 * $tradeInterval), $percentage1 * $this->amount),
+            array(abs(0.786 * $tradeInterval), $percentage2 * $this->amount),
+            array(abs($tradeInterval), $percentage2 * $this->amount),
             );
 
         if ($this->true_create_order($this->type, $this->amount) == false) {
-            $this->log->error("ichimoku macd Trade failed to create order", ['type'=>$this->type]);
+            $this->log->error("Failed to create order", ['type'=>$this->type]);
         }
         $this->log->info("Target is at price: ".$target, ['Open Price'=>$openPrice]);
-        $this->log->info("Interval is", ['Interval'=>$fibArray]);
-        $profitPair = array_pop($fibArray);
-        $intervalFlag = true;
+        $this->log->info("Interval is", ['Interval'=>$takeProfit]);
+        $profitCounter = 0;
+        $tradeArray = array(
+            "openPrice"        => $openPrice,
+            "takeProfit"       => $takeProfit,
+            "stopLoss"         => $this->stopLossInterval
+        );
+        file_put_contents($this->strategy."_".$this->type."_".$this->pid, serialize($tradeArray));
 
         do {
             $lastPrice = $this->get_ticker()['last'];
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
+            $params = unserialize(file_get_contents($this->strategy."_".$this->type."_".$this->pid));
+            if ($params != $tradeArray) {
+                $tradeArray = $params;
+                $this->log->info("New params loaded to trade.", ["tradeArray"=>$tradeArray]);
+                $takeProfit = $tradeArray["takeProfit"];
+                $stopLoss = $tradeArray["stopLoss"];
+                $profitPair = $takeProfit[$profitCounter];
+            }
 
             if (file_exists("close_".$this->strategy)) {
                 $this->log->info("Trade Process got an outside close signal", ["openProfit"=>$openProfit]);
                 $openProfit = $this->stopLossInterval - 1;
                 shell_exec('rm close_'.$this->strategy);
             }
-            if ($openProfit < $this->stopLossInterval) {
+            if ($openProfit < $stopLoss) {
                 $this->log->info("Position reached Stop Loss level, thus Closing.", ['Close Price'=>$lastPrice]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $this->amount);
                 $this->log->info("Trade has closed successfully", ['closePrice'=>$lastPrice]);
                 break;
             }
-            elseif($openProfit > -$this->stopLossInterval and $intervalFlag) {
-                $intervalFlag = false;
-                $this->stopLossInterval = -$this->stopLossInterval / 10;
-                $stopPrice = $this->is_buy() ? $openPrice+$this->stopLossInterval: $openPrice - $this->stopLossInterval;
-                $this->log->info("Stop Loss has now changed to: ".($stopPrice), ['Profits'=>$openProfit]);
-            }
             if ($openProfit > $profitPair[0]) {
                 $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $profitPair[1]);
                 $this->amount = $this->amount - $profitPair[1];
-                if (sizeof($fibArray) > 0) {
-                    $profitPair = array_pop($fibArray);
-                }
+                 $profitCounter = ++$profitCounter;
             }
             sleep(1);
         } while ($this->amount > 0);
-
+        shell_exec("rm ".$this->strategy."_".$this->type."_".$this->pid);
     }
 
     public function ichimoku_macd() {

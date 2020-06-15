@@ -10,7 +10,7 @@ $log = create_logger($logPath);
 
 $ticker =".ticker";
 $bitmex = new BitMex($config['key'],$config['secret'], $config['testnet']);
-$symbols = array("XBTUSD", "ETHUSD", "XRPUSD");
+$symbols = array("XBTUSD", "ETHUSD");
 while(1) {
     foreach($symbols as $symbol) {
         try {
