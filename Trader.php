@@ -251,6 +251,7 @@ class Trader {
         file_put_contents($this->strategy."_".$this->type."_".$this->pid, serialize($tradeArray));
 
         do {
+            $profitPair = $takeProfit[$profitCounter];
             $lastPrice = $this->get_ticker()['last'];
             $openProfit = $this->is_buy() ? $lastPrice - $openPrice: $openPrice - $lastPrice;
             $params = unserialize(file_get_contents($this->strategy."_".$this->type."_".$this->pid));
@@ -259,7 +260,6 @@ class Trader {
                 $this->log->info("New params loaded to trade.", ["tradeArray"=>$tradeArray]);
                 $takeProfit = $tradeArray["takeProfit"];
                 $stopLoss = $tradeArray["stopLoss"];
-                $profitPair = $takeProfit[$profitCounter];
             }
 
             if (file_exists("close_".$this->strategy)) {
@@ -277,7 +277,7 @@ class Trader {
                 $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $profitPair[1]);
                 $this->amount = $this->amount - $profitPair[1];
-                 $profitCounter = ++$profitCounter;
+                $profitCounter = ++$profitCounter;
             }
             sleep(1);
         } while ($this->amount > 0);
