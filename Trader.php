@@ -211,7 +211,7 @@ class Trader {
                 break;
             }
             if ($openProfit > $takeProfit[0]) {
-                $this->log->info("A Target was reached", ['target'=>$profitPair[0]]);
+                $this->log->info("A Target was reached", ['target'=>$takeProfit[0]]);
                 $this->true_create_order($this->get_opposite_trade_type($type), $takeProfit[1]);
                 $this->amount = $this->amount - $takeProfit[1];
                 $takeProfit[0] = 99999;
